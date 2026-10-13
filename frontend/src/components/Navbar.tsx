@@ -1,0 +1,348 @@
+import { useState, useRef, useEffect } from 'react'
+import {
+  Search,
+  ArrowRight,
+  Menu,
+  X,
+  User as UserIcon,
+  LogOut,
+  ChevronDown,
+  GraduationCap,
+} from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+
+interface NavbarProps {
+  onOpenMarketplace: () => void
+  onOpenAuth: (mode: 'login' | 'signup') => void
+  onScrollToSection: (sectionId: string) => void
+}
+
+export function Navbar({ onOpenMarketplace, onOpenAuth, onScrollToSection }: NavbarProps) {
+  const { user, openAuthModal, logout } = useAuth()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('Home')
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close user dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const navLinks = [
+    { name: 'Home', action: () => { setActiveTab('Home'); window.scrollTo({ top: 0, behavior: 'smooth' }) } },
+    { name: 'Browse', action: () => { setActiveTab('Browse'); onOpenMarketplace() } },
+    { name: 'How it works', action: () => { setActiveTab('How it works'); onScrollToSection('how-it-works') } },
+    { name: 'For Colleges', action: () => { setActiveTab('For Colleges'); onScrollToSection('benefits') } },
+    { name: 'About', action: () => { setActiveTab('About'); onScrollToSection('about') } },
+  ]
+
+  const userInitial = user?.full_name?.charAt(0).toUpperCase() || user?.username?.charAt(0).toUpperCase() || 'S'
+
+  return (
+    <header className="sticky top-0 z-40 w-full pt-3 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto flex items-center justify-between">
+        {/* Brand Logo */}
+        <div
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="flex items-center space-x-2.5 cursor-pointer group"
+        >
+          {/* Linked leaf / infinity icon matching reference image */}
+          <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center text-white shadow-md shadow-emerald-900/10 transition-transform group-hover:scale-105">
+            <svg
+              className="w-5 h-5 text-white"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M7 17a5 5 0 0 0 7-7l-4-4a5 5 0 0 0-7 7l4 4" />
+              <path d="M17 7a5 5 0 0 0-7 7l4 4a5 5 0 0 0 7-7l-4-4" />
+            </svg>
+          </div>
+          <span className="text-xl font-bold tracking-tight text-slate-900">
+            Campus<span className="text-emerald-800">Share</span>
+          </span>
+        </div>
+
+        {/* Center Pill Navigation (Desktop) */}
+        <nav className="hidden md:flex items-center space-x-1 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-md border border-slate-200/70 shadow-sm shadow-slate-200/40">
+          {navLinks.map((link) => {
+            const isActive = activeTab === link.name
+            return (
+              <button
+                key={link.name}
+                type="button"
+                onClick={link.action}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-[#E5E1D8] text-stone-900 shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/60'
+                }`}
+              >
+                {link.name}
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* Right Action Buttons */}
+        <div className="hidden sm:flex items-center space-x-3">
+          {/* Search Trigger */}
+          <button
+            type="button"
+            onClick={onOpenMarketplace}
+            className="p-2.5 rounded-full bg-white/80 hover:bg-white text-stone-600 hover:text-stone-900 border border-slate-200/70 shadow-2xs transition-all cursor-pointer"
+            title="Search campus marketplace"
+            aria-label="Search items"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+
+          {user ? (
+            /* Authenticated Student Profile Pill & Dropdown */
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center space-x-2.5 pl-1.5 pr-3 py-1 rounded-full bg-white/90 hover:bg-white border border-stone-200/80 shadow-xs transition-all cursor-pointer group"
+                id="user-profile-menu-button"
+                aria-haspopup="true"
+                aria-expanded={userMenuOpen}
+              >
+                {/* Profile Photo or Neutral Initials Avatar */}
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user.full_name || user.username}
+                    className="w-7 h-7 rounded-full object-cover border border-emerald-600/30"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-[#1B3B2B] text-amber-100 flex items-center justify-center font-bold text-xs shadow-xs">
+                    {userInitial}
+                  </div>
+                )}
+
+                <div className="text-left">
+                  <div className="text-xs font-bold text-stone-800 leading-tight max-w-[120px] truncate">
+                    {user.full_name || user.username}
+                  </div>
+                  <div className="text-[10px] text-emerald-800 font-medium flex items-center">
+                    {user.is_college_verified ? (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 mr-1" />
+                        <span className="truncate max-w-[100px]">{user.display_college || 'Verified'}</span>
+                      </>
+                    ) : user.is_email_verified ? (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1" />
+                        <span>Email Verified</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1" />
+                        <span>Unverified</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <ChevronDown className={`w-3.5 h-3.5 text-stone-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* User Dropdown Menu */}
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-stone-200 shadow-xl p-2 z-50 animate-in fade-in-50 zoom-in-95">
+                  <div className="px-3 py-2 border-b border-stone-100 mb-1">
+                    <p className="text-xs font-bold text-stone-900 truncate">
+                      {user.full_name || user.username}
+                    </p>
+                    <p className="text-[11px] text-stone-500 truncate">{user.college_email}</p>
+                    {user.display_college && (
+                      <p className="text-[10px] font-medium text-emerald-800 flex items-center mt-1">
+                        <GraduationCap className="w-3 h-3 mr-1 shrink-0" />
+                        <span className="truncate">{user.display_college}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false)
+                      openAuthModal('profile-view')
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-semibold text-stone-700 hover:text-stone-900 hover:bg-stone-50 transition-colors cursor-pointer"
+                  >
+                    <UserIcon className="w-3.5 h-3.5 text-emerald-800" />
+                    <span>My Student Profile</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setUserMenuOpen(false)
+                      await logout()
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-700 hover:text-rose-900 hover:bg-rose-50 transition-colors cursor-pointer mt-1"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Log in Pill Button */}
+              <button
+                type="button"
+                onClick={() => onOpenAuth('login')}
+                className="px-4 py-2 rounded-full text-xs font-semibold text-stone-800 bg-white/80 hover:bg-white border border-slate-200/70 shadow-2xs transition-all cursor-pointer"
+              >
+                Log in
+              </button>
+
+              {/* Get Started Dark Forest Green Pill */}
+              <button
+                type="button"
+                onClick={() => onOpenAuth('signup')}
+                className="inline-flex items-center px-4 py-2 rounded-full text-xs font-semibold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-md shadow-emerald-950/20 transition-all hover:scale-102 cursor-pointer"
+              >
+                <span>Get Started</span>
+                <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Mobile Menu Button */}
+        <div className="flex sm:hidden items-center space-x-2">
+          <button
+            type="button"
+            onClick={onOpenMarketplace}
+            className="p-2 rounded-full bg-white/80 text-stone-700 border border-slate-200"
+            aria-label="Search"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-full bg-white/80 text-stone-700 border border-slate-200"
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Menu Drawer */}
+      {mobileMenuOpen && (
+        <div className="sm:hidden mt-3 p-4 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200 shadow-xl space-y-3">
+          {user && (
+            <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/70 flex items-center space-x-3 mb-2">
+              {user.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt={user.full_name || user.username}
+                  className="w-9 h-9 rounded-full object-cover border border-emerald-600/30"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-[#1B3B2B] text-amber-100 flex items-center justify-center font-bold text-sm">
+                  {userInitial}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-stone-900 truncate">
+                  {user.full_name || user.username}
+                </div>
+                <div className="text-[11px] text-stone-500 truncate">{user.college_email}</div>
+                <div className="text-[10px] text-emerald-800 font-medium mt-0.5">
+                  {user.is_college_verified ? `🎓 ${user.display_college || 'Verified'}` : '✉️ Email Verified'}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col space-y-1">
+            {navLinks.map((link) => (
+              <button
+                key={link.name}
+                type="button"
+                onClick={() => {
+                  link.action()
+                  setMobileMenuOpen(false)
+                }}
+                className="text-left px-3 py-2 rounded-lg text-sm font-medium text-stone-800 hover:bg-stone-100"
+              >
+                {link.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="pt-3 border-t border-slate-100 flex flex-col space-y-2">
+            {user ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    openAuthModal('profile-view')
+                    setMobileMenuOpen(false)
+                  }}
+                  className="w-full py-2.5 rounded-full text-xs font-semibold text-stone-800 bg-stone-100 text-center flex items-center justify-center"
+                >
+                  <UserIcon className="w-3.5 h-3.5 mr-2 text-emerald-800" />
+                  <span>My Student Profile</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setMobileMenuOpen(false)
+                    await logout()
+                  }}
+                  className="w-full py-2.5 rounded-full text-xs font-semibold text-rose-700 bg-rose-50 text-center flex items-center justify-center"
+                >
+                  <LogOut className="w-3.5 h-3.5 mr-2" />
+                  <span>Sign Out</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenAuth('login')
+                    setMobileMenuOpen(false)
+                  }}
+                  className="w-full py-2.5 rounded-full text-xs font-semibold text-stone-800 bg-stone-100 text-center"
+                >
+                  Log in
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenAuth('signup')
+                    setMobileMenuOpen(false)
+                  }}
+                  className="w-full py-2.5 rounded-full text-xs font-semibold text-white bg-emerald-800 text-center flex items-center justify-center"
+                >
+                  <span>Get Started</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </header>
+  )
+}
