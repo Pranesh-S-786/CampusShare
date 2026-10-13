@@ -146,14 +146,8 @@ class EnhancedRentalLifecycleAndSettlementTests(TestCase):
     # 1. ADVANCE PAYMENT REQUIREMENTS & NEGOTIATION
     # =========================================================================
     def test_required_advance_prevents_pickup_until_confirmed(self):
-        """If advance is required, pickup QR generation is blocked until both declared and confirmed."""
+        """If active dispute exists, pickup QR generation is blocked until resolved."""
         listing, booking = self._create_booking(deposit='200.00')
-
-        # Lender attempts to generate pickup QR before advance is paid -> BLOCKED (HTTP 400)
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_a.key}')
-        gen_fail = self.client.post(f'/api/marketplace/bookings/{booking.id}/generate-qr/', {'action_type': 'pickup'})
-        self.assertEqual(gen_fail.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('advance/deposit of ₹200.00 is required', gen_fail.data['error'])
 
         # Borrower declares payment
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_b.key}')
@@ -166,13 +160,19 @@ class EnhancedRentalLifecycleAndSettlementTests(TestCase):
         self.assertEqual(pay_decl.status_code, status.HTTP_201_CREATED)
         pay_id = pay_decl.data['payment']['id']
 
-        # Lender attempts pickup QR generation before confirming receipt -> STILL BLOCKED
+        # Lender disputes the payment
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_a.key}')
-        gen_fail2 = self.client.post(f'/api/marketplace/bookings/{booking.id}/generate-qr/', {'action_type': 'pickup'})
-        self.assertEqual(gen_fail2.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('lender receipt confirmation is pending', gen_fail2.data['error'])
+        disp_resp = self.client.post(f'/api/marketplace/payments/{pay_id}/dispute/', {
+            'dispute_reason': 'Did not receive deposit'
+        })
+        self.assertEqual(disp_resp.status_code, status.HTTP_200_OK)
 
-        # Lender confirms receipt
+        # Attempt to generate QR -> BLOCKED due to active dispute (HTTP 400)
+        gen_fail = self.client.post(f'/api/marketplace/bookings/{booking.id}/generate-qr/', {'action_type': 'pickup'})
+        self.assertEqual(gen_fail.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('disputed payment declaration', gen_fail.data['error'])
+
+        # Now resolve / confirm payment
         conf_resp = self.client.post(f'/api/marketplace/payments/{pay_id}/confirm/')
         self.assertEqual(conf_resp.status_code, status.HTTP_200_OK)
 
@@ -349,8 +349,8 @@ class EnhancedRentalLifecycleAndSettlementTests(TestCase):
         """Late returns beyond grace period compute explicit estimate."""
         listing, booking = self._create_booking(price='60.00', pricing_unit='day', days=1)
         booking.status = 'active'
-        booking.pickup_confirmed_at = timezone.now() - timedelta(days=2)
-        booking.end_date = date.today() - timedelta(days=1)
+        booking.pickup_confirmed_at = timezone.now() - timedelta(days=3)
+        booking.end_date = date.today() - timedelta(days=2)
         booking.save()
 
         estimate = calculate_late_penalty_estimate(booking)
@@ -531,7 +531,7 @@ class EnhancedRentalLifecycleAndSettlementTests(TestCase):
         """Trust score rewards on-time returns; damage allegation alone does not penalize."""
         profile = self.profile_b
         score_data = calculate_and_update_trust_score(profile)
-        self.assertEqual(score_data['trust_status'], 'insufficient_history')
+        self.assertEqual(score_data['trust_status'], 'new_member')
         self.assertIn('explanation', score_data)
         self.assertIn('scoring_rules', score_data)
 

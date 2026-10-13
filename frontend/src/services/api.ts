@@ -139,7 +139,9 @@ async function handleResponse<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     let errorMsg = 'An unexpected error occurred.'
-    if (data?.errors) {
+    if (data?.error && typeof data.error === 'string') {
+      errorMsg = data.error
+    } else if (data?.errors) {
       if (typeof data.errors === 'string') {
         errorMsg = data.errors
       } else if (typeof data.errors === 'object') {

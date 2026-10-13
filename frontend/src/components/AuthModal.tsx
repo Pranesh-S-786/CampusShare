@@ -65,7 +65,6 @@ export function AuthModal() {
   // Verification state
   const [verifyEmailAddr, setVerifyEmailAddr] = useState('')
   const [verifyCode, setVerifyCode] = useState('')
-  const [devOtpNotice, setDevOtpNotice] = useState<string | null>(null)
   const [resendingCode, setResendingCode] = useState(false)
 
   // Login state
@@ -158,12 +157,6 @@ export function AuthModal() {
       })
 
       setVerifyEmailAddr(response.email)
-      if (response.email_delivery?.dev_code) {
-        setDevOtpNotice(`Development verification code: ${response.email_delivery.dev_code}`)
-      } else {
-        setDevOtpNotice(null)
-      }
-
       openAuthModal('verify-email', response.email)
       setSuccessBanner(response.message)
     } catch (err: any) {
@@ -205,9 +198,6 @@ export function AuthModal() {
     setResendingCode(true)
     try {
       const res = await resendVerificationCode(verifyEmailAddr)
-      if (res.email_delivery?.dev_code) {
-        setDevOtpNotice(`Development verification code: ${res.email_delivery.dev_code}`)
-      }
       setSuccessBanner(res.message)
     } catch (err: any) {
       setErrorBanner(err.message || 'Failed to resend verification code.')
@@ -233,9 +223,6 @@ export function AuthModal() {
       if (!response.user.is_email_verified) {
         removeAuthToken()
         setVerifyEmailAddr(response.user.college_email)
-        if (response.email_delivery?.dev_code) {
-          setDevOtpNotice(`Development verification code: ${response.email_delivery.dev_code}`)
-        }
         openAuthModal('verify-email', response.user.college_email)
         setSuccessBanner(`Your email address has not been verified yet. A verification code was sent to ${response.user.college_email}. Please enter it below.`)
         return
@@ -248,9 +235,6 @@ export function AuthModal() {
         removeAuthToken()
         const targetEmail = err.data.email || loginEmail
         setVerifyEmailAddr(targetEmail)
-        if (err.data.email_delivery?.dev_code) {
-          setDevOtpNotice(`Development verification code: ${err.data.email_delivery.dev_code}`)
-        }
         openAuthModal('verify-email', targetEmail)
         setErrorBanner(null)
         setSuccessBanner(err.message || `A verification code was sent to ${targetEmail}. Please verify your email before logging in.`)
@@ -272,9 +256,6 @@ export function AuthModal() {
       const res = await requestPasswordReset(forgotEmail)
       setSuccessBanner(res.message)
       setResetStep('confirm')
-      if (res.email_delivery?.dev_code) {
-        setDevOtpNotice(`Development reset code: ${res.email_delivery.dev_code}`)
-      }
     } catch (err: any) {
       setErrorBanner(err.message || 'Failed to send password reset code.')
     } finally {
@@ -425,26 +406,6 @@ export function AuthModal() {
             </div>
           )}
 
-          {devOtpNotice && (
-            <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between space-x-2">
-              <div className="flex items-center space-x-2">
-                <Info className="w-4 h-4 text-amber-700 shrink-0" />
-                <div className="leading-snug">
-                  <span className="font-bold">Verification Code: </span>
-                  <span className="font-mono font-extrabold text-amber-950 text-sm tracking-widest">{devOtpNotice.replace(/\D/g, '') || devOtpNotice}</span>
-                </div>
-              </div>
-              {modalView === 'verify-email' && devOtpNotice.replace(/\D/g, '') && (
-                <button
-                  type="button"
-                  onClick={() => setVerifyCode(devOtpNotice.replace(/\D/g, ''))}
-                  className="px-3 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded-xl font-bold text-xs shadow-xs transition-all cursor-pointer shrink-0"
-                >
-                  Auto-fill
-                </button>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Modal Scrollable Body */}

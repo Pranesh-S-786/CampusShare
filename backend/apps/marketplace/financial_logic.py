@@ -14,12 +14,9 @@ DISCLAIMER_TEXT = (
 def check_payment_prerequisites_for_pickup(booking: Booking) -> Tuple[bool, str]:
     """
     Enforces Section 2 of CampusShare specification:
-    - If an advance/deposit is required, the agreed amount and BOTH required
-      payment declaration (by borrower) and receipt confirmation (by lender) must be satisfied
-      before pickup QR generation or verification.
-    - If no advance is required, do NOT introduce an unnecessary payment-confirmation requirement.
+    - Active disputes on payments or adjustments block pickup until resolved.
     - If revised advance negotiation is pending, pickup is blocked until resolved.
-    - Active disputes on payments or adjustments block pickup.
+    - Supports in-person cash/UPI payment during campus handover without blocking QR presentation.
     """
     # 1. Check for active payment disputes
     if booking.payments.filter(status='disputed').exists():
@@ -41,42 +38,7 @@ def check_payment_prerequisites_for_pickup(booking: Booking) -> Tuple[bool, str]
             "Both borrower and lender must agree to the revised amount before item handover."
         )
 
-    # 4. Determine required advance / deposit
-    agreed_advance = booking.agreed_advance_amount if booking.agreed_advance_amount is not None else (
-        booking.snapshot_deposit_amount or Decimal('0.00')
-    )
-
-    # If NO advance is required, do not block pickup!
-    if agreed_advance <= Decimal('0.00'):
-        return True, ""
-
-    # When advance is required: check declarations and confirmations
-    deposit_payments = booking.payments.filter(purpose__in=['deposit', 'rent'])
-    confirmed_total = sum(
-        (p.amount for p in deposit_payments if p.status == 'confirmed'),
-        Decimal('0.00')
-    )
-
-    if confirmed_total >= agreed_advance:
-        return True, ""
-
-    # Check if borrower declared but lender has not confirmed
-    declared_total = sum(
-        (p.amount for p in deposit_payments if p.status in ['declared', 'confirmed']),
-        Decimal('0.00')
-    )
-
-    if declared_total >= agreed_advance:
-        return False, (
-            f"Cannot proceed with pickup: Borrower declared advance payment of ₹{declared_total}, "
-            f"but lender receipt confirmation is pending. The lender must confirm receipt before pickup."
-        )
-
-    return False, (
-        f"Cannot proceed with pickup: An advance/deposit of ₹{agreed_advance} is required. "
-        f"The borrower must declare direct payment to the lender and the lender must confirm receipt "
-        f"before item handover."
-    )
+    return True, ""
 
 
 def get_booking_financial_summary(booking: Booking) -> Dict[str, Any]:

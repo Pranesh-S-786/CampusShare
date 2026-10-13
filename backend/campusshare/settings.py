@@ -294,8 +294,8 @@ EMAIL_BACKEND = os.getenv(
     'DJANGO_EMAIL_BACKEND',
     'django.core.mail.backends.smtp.EmailBackend'
 )
-# Provide fallback verification code hint in app response if institutional college firewalls delay external email
-SHOW_OTP_HINT = os.getenv('SHOW_OTP_HINT', 'True').lower() in ('true', '1', 'yes')
+# Only send verification codes strictly via email - never expose OTP hints in app responses
+SHOW_OTP_HINT = os.getenv('SHOW_OTP_HINT', 'False').lower() in ('true', '1', 'yes')
 
 
 # Supabase Storage Configuration (For optional student profile photos)
