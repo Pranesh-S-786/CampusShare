@@ -423,12 +423,23 @@ export function AuthModal() {
           )}
 
           {devOtpNotice && (
-            <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start space-x-2">
-              <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-              <div className="leading-snug">
-                <span className="font-bold block">Development Notice:</span>
-                <span className="font-mono font-bold text-amber-950">{devOtpNotice}</span>
+            <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between space-x-2">
+              <div className="flex items-center space-x-2">
+                <Info className="w-4 h-4 text-amber-700 shrink-0" />
+                <div className="leading-snug">
+                  <span className="font-bold">Verification Code: </span>
+                  <span className="font-mono font-extrabold text-amber-950 text-sm tracking-widest">{devOtpNotice.replace(/\D/g, '') || devOtpNotice}</span>
+                </div>
               </div>
+              {modalView === 'verify-email' && devOtpNotice.replace(/\D/g, '') && (
+                <button
+                  type="button"
+                  onClick={() => setVerifyCode(devOtpNotice.replace(/\D/g, ''))}
+                  className="px-3 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded-xl font-bold text-xs shadow-xs transition-all cursor-pointer shrink-0"
+                >
+                  Auto-fill
+                </button>
+              )}
             </div>
           )}
         </div>

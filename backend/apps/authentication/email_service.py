@@ -110,11 +110,12 @@ class EmailDeliveryService:
             else:
                 _send_email_worker(subject, text_message, html_message, from_email, [email], reply_to)
 
+            allow_hint = getattr(settings, 'SHOW_OTP_HINT', True) or getattr(settings, 'DEBUG', False)
             return {
                 'delivered': True,
                 'method': 'smtp',
                 'message': f"Verification code sent to {email}",
-                'dev_code': code if settings.DEBUG else None,
+                'dev_code': code if allow_hint else None,
             }
 
         # SMTP fallback in case no host/user is provided
@@ -196,11 +197,12 @@ class EmailDeliveryService:
             else:
                 _send_email_worker(subject, text_message, html_message, from_email, [email], reply_to)
 
+            allow_hint = getattr(settings, 'SHOW_OTP_HINT', True) or getattr(settings, 'DEBUG', False)
             return {
                 'delivered': True,
                 'method': 'smtp',
                 'message': f"Password reset code sent to {email}",
-                'dev_code': code if settings.DEBUG else None,
+                'dev_code': code if allow_hint else None,
             }
 
         if settings.DEBUG:
