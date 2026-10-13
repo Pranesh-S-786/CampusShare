@@ -229,7 +229,7 @@ export async function loginStudent(payload: LoginPayload): Promise<AuthResponse>
     body: JSON.stringify(payload),
   })
   const data = await handleResponse<AuthResponse>(res)
-  if (data.token) {
+  if (data.token && data.user?.is_email_verified) {
     setAuthToken(data.token)
   }
   return data

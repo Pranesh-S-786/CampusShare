@@ -29,6 +29,7 @@ import {
   confirmPasswordReset,
   uploadProfilePhoto,
   updateProfile,
+  removeAuthToken,
 } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 
@@ -225,20 +226,34 @@ export function AuthModal() {
         password: loginPassword,
       })
 
-      loginSuccess(response.user, response.token)
-
+      // Strict enforcement: Unverified accounts must verify OTP before logging in
       if (!response.user.is_email_verified) {
+        removeAuthToken()
         setVerifyEmailAddr(response.user.college_email)
         if (response.email_delivery?.dev_code) {
           setDevOtpNotice(`Development verification code: ${response.email_delivery.dev_code}`)
         }
         openAuthModal('verify-email', response.user.college_email)
-        setSuccessBanner(`A verification code was sent to ${response.user.college_email}. Please enter it below.`)
-      } else {
-        closeAuthModal()
+        setSuccessBanner(`Your email address has not been verified yet. A verification code was sent to ${response.user.college_email}. Please enter it below.`)
+        return
       }
+
+      loginSuccess(response.user, response.token)
+      closeAuthModal()
     } catch (err: any) {
-      setErrorBanner(err.message || 'Invalid email or password.')
+      if (err.data?.requires_verification) {
+        removeAuthToken()
+        const targetEmail = err.data.email || loginEmail
+        setVerifyEmailAddr(targetEmail)
+        if (err.data.email_delivery?.dev_code) {
+          setDevOtpNotice(`Development verification code: ${err.data.email_delivery.dev_code}`)
+        }
+        openAuthModal('verify-email', targetEmail)
+        setErrorBanner(null)
+        setSuccessBanner(err.message || `A verification code was sent to ${targetEmail}. Please verify your email before logging in.`)
+      } else {
+        setErrorBanner(err.message || 'Invalid email or password.')
+      }
     } finally {
       setIsSubmitting(false)
     }

@@ -222,6 +222,30 @@ class AuthenticationIntegrationTests(TestCase):
         }, format='json')
         self.assertEqual(bad_res.status_code, 401)
 
+    def test_login_blocked_for_unverified_email(self):
+        user = User.objects.create_user(
+            username='unverified@cit.edu.in',
+            email='unverified@cit.edu.in',
+            password='ValidPassword@99',
+        )
+        StudentProfile.objects.create(
+            user=user,
+            full_name='Unverified User',
+            college=self.cit,
+            college_email='unverified@cit.edu.in',
+            is_email_verified=False,
+            is_college_verified=False,
+            verification_status='unverified',
+        )
+
+        login_res = self.client.post('/api/auth/login/', {
+            'email': 'unverified@cit.edu.in',
+            'password': 'ValidPassword@99',
+        }, format='json')
+        self.assertEqual(login_res.status_code, 403)
+        self.assertTrue(login_res.data.get('requires_verification'))
+        self.assertNotIn('token', login_res.data)
+
     def test_authenticated_me_and_logout(self):
         user = User.objects.create_user(
             username='naveen@cit.edu.in',

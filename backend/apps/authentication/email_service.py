@@ -14,9 +14,10 @@ class EmailDeliveryService:
 
     @classmethod
     def is_smtp_configured(cls) -> bool:
-        host = os.getenv('EMAIL_HOST', '').strip()
-        user = os.getenv('EMAIL_HOST_USER', '').strip()
-        return bool(host and user)
+        host = getattr(settings, 'EMAIL_HOST', '') or os.getenv('EMAIL_HOST', '').strip()
+        user = getattr(settings, 'EMAIL_HOST_USER', '') or os.getenv('EMAIL_HOST_USER', '').strip()
+        backend = getattr(settings, 'EMAIL_BACKEND', '')
+        return bool(host and user and 'smtp' in backend.lower())
 
     @classmethod
     def send_verification_otp(cls, email: str, code: str, full_name: str) -> dict:
@@ -29,7 +30,7 @@ class EmailDeliveryService:
             f"If you did not request this account, please ignore this email.\n\n"
             f"— The CampusShare Team"
         )
-        from_email = os.getenv('DEFAULT_FROM_EMAIL', 'CampusShare <noreply@campusshare.edu>')
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or os.getenv('DEFAULT_FROM_EMAIL', 'CampusShare <noreply@campusshare.edu>')
 
         if cls.is_smtp_configured():
             try:
@@ -40,6 +41,7 @@ class EmailDeliveryService:
                     recipient_list=[email],
                     fail_silently=False,
                 )
+                print(f"[CAMPUSSHARE EMAIL] Verification OTP {code} sent successfully to {email}")
                 return {
                     'delivered': True,
                     'method': 'smtp',
@@ -47,6 +49,7 @@ class EmailDeliveryService:
                 }
             except Exception as exc:
                 logger.error("Failed to deliver email via SMTP: %s", exc)
+                print(f"[CAMPUSSHARE EMAIL ERROR] Failed to deliver verification code to {email}: {exc}")
                 return {
                     'delivered': False,
                     'method': 'smtp_error',
@@ -93,7 +96,7 @@ class EmailDeliveryService:
             f"If you did not request a password reset, your account is secure and you can ignore this email.\n\n"
             f"— The CampusShare Team"
         )
-        from_email = os.getenv('DEFAULT_FROM_EMAIL', 'CampusShare <noreply@campusshare.edu>')
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or os.getenv('DEFAULT_FROM_EMAIL', 'CampusShare <noreply@campusshare.edu>')
 
         if cls.is_smtp_configured():
             try:
@@ -104,12 +107,15 @@ class EmailDeliveryService:
                     recipient_list=[email],
                     fail_silently=False,
                 )
+                print(f"[CAMPUSSHARE EMAIL] Password reset OTP {code} sent successfully to {email}")
                 return {
                     'delivered': True,
                     'method': 'smtp',
                     'message': f"Password reset code sent to {email}",
                 }
             except Exception as exc:
+                logger.error("Failed to deliver password reset via SMTP: %s", exc)
+                print(f"[CAMPUSSHARE EMAIL ERROR] Failed to deliver password reset to {email}: {exc}")
                 return {
                     'delivered': False,
                     'method': 'smtp_error',

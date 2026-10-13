@@ -255,25 +255,32 @@ class LoginView(APIView):
             }
         )
 
-        token, _ = Token.objects.get_or_create(user=user)
-
-        delivery_info = None
+        # STRICT OTP CHECK: If email has not been verified yet, prevent login and send a fresh OTP code
         if not profile.is_email_verified:
-            # Automatically generate and dispatch a verification OTP so user receives it in their inbox immediately
             verification = EmailVerificationCode.generate_for_user(user=user, email=email)
             delivery_info = EmailDeliveryService.send_verification_otp(
                 email=email,
                 code=verification.code,
                 full_name=profile.full_name or user.get_full_name() or email.split('@')[0],
             )
+            return Response({
+                'errors': {
+                    'detail': 'Your email address is not verified yet. A 6-digit verification code has been sent to your email. Please enter the OTP to verify your account before logging in.'
+                },
+                'requires_verification': True,
+                'email': email,
+                'verification_token': verification.token,
+                'email_delivery': delivery_info,
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        token, _ = Token.objects.get_or_create(user=user)
 
         return Response({
             'message': 'Login successful.',
             'token': token.key,
             'user': StudentProfileSerializer(profile).data,
-            'is_email_verified': profile.is_email_verified,
+            'is_email_verified': True,
             'is_college_verified': profile.is_college_verified,
-            'email_delivery': delivery_info,
         }, status=status.HTTP_200_OK)
 
 
@@ -393,6 +400,11 @@ class ResetPasswordView(APIView):
 
         record.is_used = True
         record.save(update_fields=['is_used'])
+
+        # Since the student verified the 6-digit code delivered to their email, mark email as verified
+        if hasattr(user, 'profile'):
+            user.profile.is_email_verified = True
+            user.profile.update_verification_status(save=True)
 
         # Update password
         user.set_password(new_password)

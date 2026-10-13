@@ -13,7 +13,7 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load environment variables from .env file in backend directory
-load_dotenv(BASE_DIR / '.env')
+load_dotenv(BASE_DIR / '.env', override=True)
 
 # Quick-start development settings - unsuitable for production
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -282,12 +282,13 @@ if not DEBUG:
 
 
 # Email Delivery Configuration (Configured for verification links and OTP codes)
-EMAIL_HOST = os.getenv('EMAIL_HOST', '').strip()
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com').strip()
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '').strip()
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '').strip()
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'CampusShare <noreply@campusshare.edu>')
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() in ('true', '1', 'yes')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'CampusShare <noreply@campusshare.edu>')
 
 EMAIL_BACKEND = os.getenv(
     'DJANGO_EMAIL_BACKEND',

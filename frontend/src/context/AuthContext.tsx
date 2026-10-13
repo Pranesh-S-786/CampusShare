@@ -70,8 +70,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const data = await getCurrentStudent()
-      setUser(data.user)
-      setToken(existingToken)
+      if (!data.user.is_email_verified) {
+        // Enforce OTP verification: do not restore sessions for unverified users
+        removeAuthToken()
+        setUser(null)
+        setToken(null)
+      } else {
+        setUser(data.user)
+        setToken(existingToken)
+      }
     } catch (err) {
       console.warn('Failed to restore student session:', err)
       removeAuthToken()
