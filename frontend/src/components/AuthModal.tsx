@@ -703,8 +703,11 @@ export function AuthModal() {
                 </div>
                 <h4 className="text-sm font-bold text-stone-900">Enter Your 6-Digit Code</h4>
                 <p className="text-xs text-stone-600 max-w-sm mx-auto">
-                  We dispatched a verification code to{' '}
+                  We dispatched a 6-digit verification code to{' '}
                   <span className="font-semibold text-stone-900">{verifyEmailAddr || 'your email'}</span>.
+                </p>
+                <p className="text-[11px] text-amber-800 bg-amber-50/80 border border-amber-200/70 rounded-xl px-3 py-1.5 mt-2 inline-block">
+                  💡 Didn't see it? Please check your <strong>Spam / Junk / Promotions</strong> folder.
                 </p>
               </div>
 

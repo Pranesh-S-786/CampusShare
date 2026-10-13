@@ -284,15 +284,15 @@ if not DEBUG:
 # Email Delivery Configuration (Configured for verification links and OTP codes)
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com').strip()
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '').strip()
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '').strip()
+EMAIL_HOST_USER = (os.getenv('EMAIL_HOST_USER') or 'campusshare7@gmail.com').strip()
+EMAIL_HOST_PASSWORD = (os.getenv('EMAIL_HOST_PASSWORD') or 'oqdz lray fbxp dvnl').strip()
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
 EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() in ('true', '1', 'yes')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'CampusShare <noreply@campusshare.edu>')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL') or f"CampusShare <{EMAIL_HOST_USER}>"
 
 EMAIL_BACKEND = os.getenv(
     'DJANGO_EMAIL_BACKEND',
-    'django.core.mail.backends.smtp.EmailBackend' if (EMAIL_HOST and EMAIL_HOST_USER) else 'django.core.mail.backends.console.EmailBackend'
+    'django.core.mail.backends.smtp.EmailBackend'
 )
 
 
