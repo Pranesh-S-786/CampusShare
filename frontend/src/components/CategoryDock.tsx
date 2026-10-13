@@ -82,7 +82,7 @@ export function CategoryDock({ onSelectCategory, onScrollDown }: CategoryDockPro
       </button>
 
       {/* Floating Glassmorphic Category Bar matching reference */}
-      <div className="glass-dock rounded-3xl p-2 sm:p-2.5 flex items-center justify-center gap-1.5 sm:gap-2.5 max-w-full overflow-x-auto scrollbar-none shadow-xl">
+      <div className="glass-dock rounded-3xl p-2 sm:p-2.5 flex items-center justify-start md:justify-center gap-1.5 sm:gap-2.5 max-w-full overflow-x-auto scrollbar-none shadow-xl touch-pan-x touch-scroll">
         {categories.map((cat) => {
           const Icon = cat.icon
           return (

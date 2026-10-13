@@ -62,24 +62,27 @@ export function RelistChoiceModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in-50"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in-50"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-3xl bg-[#FBF8F3] border border-stone-200 shadow-2xl overflow-hidden animate-in zoom-in-95"
+        className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl bg-[#FBF8F3] border border-stone-200 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 max-h-[92vh] sm:max-h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile Drag Indicator */}
+        <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-200/80 bg-white">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#1B3B2B] flex items-center justify-center border border-emerald-100">
-              <Package className="w-5 h-5 text-emerald-800" />
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-stone-200/80 bg-white">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-[#1B3B2B] flex items-center justify-center border border-emerald-100 shrink-0">
+              <Package className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-800" />
             </div>
-            <div>
-              <h3 className="font-bold text-stone-900 text-sm sm:text-base">
+            <div className="min-w-0">
+              <h3 className="font-bold text-stone-900 text-xs sm:text-base">
                 Physical Return Verified
               </h3>
-              <p className="text-xs text-stone-500 font-mono truncate max-w-[260px]">
+              <p className="text-[11px] sm:text-xs text-stone-500 font-mono truncate max-w-[220px] sm:max-w-[260px]">
                 {booking.listing.title}
               </p>
             </div>
@@ -87,14 +90,14 @@ export function RelistChoiceModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full hover:bg-stone-100 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full hover:bg-stone-100 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
           <div className="text-center space-y-2">
             <h4 className="text-base sm:text-lg font-extrabold text-stone-900">
               Would you like to list this product again?

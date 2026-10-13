@@ -80,7 +80,7 @@ export function MarketplaceProductGrid({
   return (
     <section className="space-y-6">
       {/* 1. Category Filter Strip matching reference image */}
-      <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
+      <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none touch-pan-x touch-scroll">
         {/* 'All' button */}
         <button
           type="button"
@@ -221,7 +221,7 @@ export function MarketplaceProductGrid({
         </div>
       ) : (
         /* Responsive Product Grid with Real Data */
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-5">
           {listings.map((item) => {
             const isWishlisted = wishlistIds.includes(item.id)
             const lenderInitial = item.lender?.full_name?.charAt(0).toUpperCase() || 'S'
@@ -233,7 +233,7 @@ export function MarketplaceProductGrid({
                 className="group rounded-2xl bg-white border border-stone-200/90 shadow-2xs hover:shadow-md transition-all cursor-pointer overflow-hidden flex flex-col justify-between"
               >
                 {/* Image & Wishlist Pill */}
-                <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden">
+                <div className="relative aspect-[16/10] sm:aspect-[4/3] bg-stone-100 overflow-hidden">
                   {item.image_url ? (
                     <img
                       src={item.image_url}

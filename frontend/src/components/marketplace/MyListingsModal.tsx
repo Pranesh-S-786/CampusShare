@@ -139,40 +139,43 @@ export function MyListingsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-stone-900/60 backdrop-blur-xs animate-in fade-in-50"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in-50"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-3xl bg-white border border-stone-200 shadow-2xl overflow-hidden animate-in zoom-in-95"
+        className="w-full max-w-4xl max-h-[94vh] sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-white border border-stone-200 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile Drag Indicator */}
+        <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 bg-[#FBF8F3]">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-[#1B3B2B] text-emerald-100 flex items-center justify-center shadow-xs">
-              <Tag className="w-5 h-5" />
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-stone-100 bg-[#FBF8F3]">
+          <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1B3B2B] text-emerald-100 flex items-center justify-center shadow-xs shrink-0">
+              <Tag className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-stone-900">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-lg font-bold text-stone-900 truncate">
                 My Campus Listings
               </h2>
-              <p className="text-xs text-stone-500">
+              <p className="text-[11px] sm:text-xs text-stone-500 truncate">
                 Manage your shared, rented, and sold items across campus
               </p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 shrink-0">
             <button
               type="button"
               onClick={() => {
                 onClose()
                 onOpenPostItem()
               }}
-              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-xs transition-all cursor-pointer"
+              className="inline-flex items-center space-x-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-xs transition-all cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Post New Item</span>
+              <span>Post Item</span>
             </button>
             <button
               type="button"
@@ -185,7 +188,7 @@ export function MyListingsModal({
         </div>
 
         {/* Status Filter Tabs */}
-        <div className="px-6 py-3 border-b border-stone-100 bg-stone-50/50 flex items-center space-x-2 overflow-x-auto">
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-stone-100 bg-stone-50/50 flex items-center space-x-2 overflow-x-auto scrollbar-none touch-pan-x touch-scroll">
           {[
             { id: 'all' as const, label: 'All Items', count: listings.length },
             { id: 'published' as const, label: 'Published', count: publishedCount },

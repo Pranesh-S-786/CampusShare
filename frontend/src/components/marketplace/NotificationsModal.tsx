@@ -167,25 +167,28 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
       <div
-        className="w-full max-w-2xl bg-[#FBF8F3] border border-emerald-950/10 rounded-2xl shadow-2xl flex flex-col max-h-[88vh] overflow-hidden transition-all transform animate-scale-up"
+        className="w-full max-w-2xl bg-[#FBF8F3] border border-emerald-950/10 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[94vh] sm:max-h-[88vh] overflow-hidden transition-all transform animate-scale-up"
         onClick={e => e.stopPropagation()}
       >
+        {/* Mobile Drag Indicator */}
+        <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
         {/* Modal Header */}
-        <div className="px-6 py-5 bg-[#F6F1E8] border-b border-emerald-950/10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative p-2.5 rounded-xl bg-emerald-900 text-white shadow-sm">
-              <Bell className="w-5 h-5" />
+        <div className="px-4 sm:px-6 py-3.5 sm:py-5 bg-[#F6F1E8] border-b border-emerald-950/10 flex items-center justify-between">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="relative p-2 sm:p-2.5 rounded-xl bg-emerald-900 text-white shadow-sm shrink-0">
+              <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow ring-2 ring-white">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-[#1B3B2B] tracking-tight">Notifications</h2>
-              <p className="text-xs text-[#1B3B2B]/60">Activity and updates for your campus rentals & requests</p>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-xl font-bold text-[#1B3B2B] tracking-tight truncate">Notifications</h2>
+              <p className="text-[11px] sm:text-xs text-[#1B3B2B]/60 truncate">Activity and updates for your campus rentals & requests</p>
             </div>
           </div>
 

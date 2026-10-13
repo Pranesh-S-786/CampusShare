@@ -165,26 +165,29 @@ export function MyBookingsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in-50"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in-50"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl rounded-3xl bg-white border border-stone-200 shadow-2xl overflow-hidden animate-in zoom-in-95 max-h-[92vh] flex flex-col"
+        className="w-full max-w-3xl rounded-t-3xl sm:rounded-3xl bg-white border border-stone-200 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 max-h-[94vh] sm:max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile Drag Indicator */}
+        <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 bg-[#FBF8F3]">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-900 flex items-center justify-center font-bold">
-              <Calendar className="w-5 h-5 text-emerald-800" />
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-stone-100 bg-[#FBF8F3]">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-900 flex items-center justify-center font-bold shrink-0">
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-800" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-stone-900">My Booking Requests</h3>
-              <p className="text-xs text-stone-500">Items you requested to borrow, rent, or buy</p>
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-stone-900 truncate">My Booking Requests</h3>
+              <p className="text-[11px] sm:text-xs text-stone-500 truncate">Items you requested to borrow, rent, or buy</p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 shrink-0">
             {onOpenIncomingRequests && (
               <button
                 type="button"
@@ -192,9 +195,9 @@ export function MyBookingsModal({
                   onClose()
                   onOpenIncomingRequests()
                 }}
-                className="px-3 py-1.5 rounded-full text-xs font-bold text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors flex items-center space-x-1 cursor-pointer"
+                className="hidden xs:flex px-3 py-1.5 rounded-full text-xs font-bold text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors items-center space-x-1 cursor-pointer"
               >
-                <span>Incoming Requests</span>
+                <span>Incoming</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}
@@ -209,7 +212,7 @@ export function MyBookingsModal({
         </div>
 
         {/* Filter Tabs */}
-        <div className="px-6 py-3 border-b border-stone-100 bg-white flex items-center justify-between overflow-x-auto">
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-stone-100 bg-white flex items-center justify-between overflow-x-auto scrollbar-none touch-pan-x touch-scroll">
           <div className="flex items-center space-x-1.5">
             {(
               [

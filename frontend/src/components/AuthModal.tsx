@@ -338,10 +338,13 @@ export function AuthModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-      <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden my-6 flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/60 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+      <div className="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200 overflow-hidden my-0 sm:my-6 flex flex-col max-h-[94vh] sm:max-h-[92vh]">
+        {/* Mobile Drag Indicator */}
+        <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
         {/* Modal Top Header */}
-        <div className="p-5 sm:p-6 border-b border-stone-100 flex items-center justify-between bg-stone-50/60">
+        <div className="p-4 sm:p-6 border-b border-stone-100 flex items-center justify-between bg-stone-50/60">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-[#1B3B2B] text-white flex items-center justify-center shadow-md shadow-emerald-950/20">
               {modalView === 'login' ? (

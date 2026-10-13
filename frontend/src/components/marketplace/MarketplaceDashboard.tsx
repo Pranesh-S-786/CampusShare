@@ -9,6 +9,13 @@ import {
   getUnreadCounts,
   startConversation,
 } from '../../services/api'
+import {
+  Home,
+  Search,
+  Plus,
+  Calendar,
+  Menu,
+} from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { MarketplaceTopBar } from './MarketplaceTopBar'
 import { MarketplaceLeftSidebar, type NavTab } from './MarketplaceLeftSidebar'
@@ -367,7 +374,7 @@ export function MarketplaceDashboard({
         )}
 
         {/* 2. Center Feed */}
-        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-7 overflow-y-auto space-y-7">
+        <main className="flex-1 min-w-0 p-3 sm:p-6 lg:p-7 pb-24 lg:pb-7 overflow-y-auto space-y-5 sm:space-y-7">
           {/* Hero Promotional Banner */}
           <MarketplaceHeroBanner
             categories={categories}
@@ -560,6 +567,86 @@ export function MarketplaceDashboard({
           }
         }}
       />
+
+      {/* Mobile Bottom Navigation Bar (< lg screens) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#FBF8F3]/95 backdrop-blur-md border-t border-stone-200/90 py-1.5 px-3 flex items-center justify-around lg:hidden shadow-lg safe-area-pb">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('Home')
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          className={`flex flex-col items-center justify-center space-y-1 transition-colors ${
+            activeTab === 'Home' ? 'text-[#1B3B2B] font-bold' : 'text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          <Home className="w-5 h-5" />
+          <span className="text-[10px]">Home</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('Browse')
+            window.scrollTo({ top: 120, behavior: 'smooth' })
+          }}
+          className={`flex flex-col items-center justify-center space-y-1 transition-colors ${
+            activeTab === 'Browse' ? 'text-[#1B3B2B] font-bold' : 'text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          <Search className="w-5 h-5" />
+          <span className="text-[10px]">Browse</span>
+        </button>
+
+        {/* Standout Post Item CTA */}
+        <button
+          type="button"
+          onClick={() => {
+            if (!user) {
+              openAuthModal('login')
+            } else {
+              setEditingListing(null)
+              setIsPostItemOpen(true)
+            }
+          }}
+          className="flex flex-col items-center justify-center -mt-5"
+          title="Post an item to rent or lend"
+        >
+          <div className="w-12 h-12 rounded-full bg-[#1B3B2B] hover:bg-[#25503B] text-white flex items-center justify-center shadow-lg shadow-emerald-950/25 border-2 border-[#FBF8F3] transition-transform active:scale-95">
+            <Plus className="w-6 h-6 stroke-[2.5]" />
+          </div>
+          <span className="text-[10px] font-bold text-[#1B3B2B] mt-0.5">Post</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (!user) {
+              openAuthModal('login')
+            } else {
+              setIsMyBookingsOpen(true)
+            }
+          }}
+          className={`flex flex-col items-center justify-center space-y-1 transition-colors ${
+            activeTab === 'My Bookings' ? 'text-[#1B3B2B] font-bold' : 'text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          <Calendar className="w-5 h-5" />
+          <span className="text-[10px]">Rentals</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileSidebarOpen(true)}
+          className="flex flex-col items-center justify-center space-y-1 text-stone-500 hover:text-stone-800 transition-colors relative"
+        >
+          <Menu className="w-5 h-5" />
+          <span className="text-[10px]">Menu</span>
+          {(unreadNotificationsCount > 0 || unreadMessagesCount > 0) && (
+            <span className="absolute top-0 right-2 w-2 h-2 rounded-full bg-rose-500" />
+          )}
+        </button>
+      </nav>
     </div>
   )
 }

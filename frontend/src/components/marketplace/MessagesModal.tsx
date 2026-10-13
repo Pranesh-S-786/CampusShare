@@ -216,20 +216,23 @@ export const MessagesModal: React.FC<MessagesModalProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
       <div
-        className="w-full max-w-4xl bg-[#FBF8F3] border border-emerald-950/10 rounded-2xl shadow-2xl flex flex-col h-[90vh] max-h-[800px] overflow-hidden transition-all transform animate-scale-up"
+        className="w-full max-w-4xl bg-[#FBF8F3] border border-emerald-950/10 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col h-[94vh] sm:h-[90vh] max-h-[800px] overflow-hidden transition-all transform animate-scale-up"
         onClick={e => e.stopPropagation()}
       >
+        {/* Mobile Drag Indicator */}
+        <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
         {/* Main Header */}
-        <div className="px-6 py-4 bg-[#F6F1E8] border-b border-emerald-950/10 flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-[#F6F1E8] border-b border-emerald-950/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-900 text-white shadow-sm">
-              <MessageSquare className="w-5 h-5" />
+            <div className="p-2 sm:p-2.5 rounded-xl bg-emerald-900 text-white shadow-sm">
+              <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-[#1B3B2B] tracking-tight">Messages</h2>
-              <p className="text-xs text-[#1B3B2B]/60">Secure direct campus conversations</p>
+              <h2 className="text-base sm:text-xl font-bold text-[#1B3B2B] tracking-tight">Messages</h2>
+              <p className="text-[11px] sm:text-xs text-[#1B3B2B]/60">Secure direct campus conversations</p>
             </div>
           </div>
 

@@ -150,24 +150,27 @@ export function HandoverQRModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in-50"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in-50"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-3xl bg-white border border-stone-200 shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col"
+        className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-white border border-stone-200 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 flex flex-col max-h-[94vh] sm:max-h-[88vh]"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile Drag Indicator */}
+        <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 bg-[#FBF8F3]">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-900 flex items-center justify-center font-bold">
-              <QrCode className="w-5 h-5 text-emerald-800" />
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-stone-100 bg-[#FBF8F3]">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-900 flex items-center justify-center font-bold shrink-0">
+              <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-800" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-stone-900">
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-stone-900 truncate">
                 {isPickup ? 'Present Pickup QR' : 'Present Return QR'}
               </h3>
-              <p className="text-xs text-stone-500">
+              <p className="text-[11px] sm:text-xs text-stone-500 truncate">
                 {isPickup ? 'Handover item to borrower' : 'Return item to lender'}
               </p>
             </div>
@@ -175,14 +178,14 @@ export function HandoverQRModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+            className="p-1.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-5 text-center">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 text-center overflow-y-auto flex-1 safe-area-pb">
           {/* Target Student Instructions */}
           <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/80 text-left flex items-center justify-between">
             <div>

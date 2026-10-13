@@ -11,14 +11,17 @@ export function SustainabilityModal({ isOpen, onClose }: SustainabilityModalProp
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in-50"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in-50"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-3xl bg-white border border-stone-200 shadow-2xl overflow-hidden animate-in zoom-in-95"
+        className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl bg-white border border-stone-200 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 max-h-[92vh] sm:max-h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative h-44 overflow-hidden bg-emerald-950">
+        {/* Mobile Drag Indicator */}
+        <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
+        <div className="relative h-36 sm:h-44 overflow-hidden bg-emerald-950 shrink-0">
           <img
             src={clocktowerImg}
             alt="Collegiate campus architecture"

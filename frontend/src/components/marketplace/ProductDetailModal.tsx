@@ -91,15 +91,18 @@ export function ProductDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in-50"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in-50"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl rounded-3xl bg-white border border-stone-200 shadow-2xl overflow-hidden animate-in zoom-in-95 max-h-[92vh] flex flex-col"
+        className="w-full max-w-2xl rounded-t-3xl sm:rounded-3xl bg-white border border-stone-200 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:zoom-in-95 max-h-[92vh] sm:max-h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile Drag Indicator */}
+        <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
         {/* Header Bar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100 bg-[#FBF8F3]">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-stone-100 bg-[#FBF8F3]">
           <div className="flex items-center space-x-2">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-900 font-mono">
               {listing.category.name}
@@ -420,8 +423,8 @@ export function ProductDetailModal({
         </div>
 
         {/* Footer Action */}
-        <div className="px-6 py-4 border-t border-stone-100 bg-[#FBF8F3] flex items-center justify-between">
-          <div className="text-xs text-stone-500">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-stone-100 bg-[#FBF8F3] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 safe-area-pb">
+          <div className="hidden sm:block text-xs text-stone-500">
             <span>Listed {new Date(listing.created_at).toLocaleDateString()}</span>
           </div>
 
@@ -432,13 +435,13 @@ export function ProductDetailModal({
                 onClose()
                 if (onOpenEditListing) onOpenEditListing(listing)
               }}
-              className="px-6 py-2.5 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer"
+              className="w-full sm:w-auto px-6 py-2.5 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-sm transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
             >
               <Edit3 className="w-3.5 h-3.5" />
               <span>Edit My Listing</span>
             </button>
           ) : (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 w-full sm:w-auto">
               {user && onMessageOwner && (
                 <button
                   type="button"
@@ -446,7 +449,7 @@ export function ProductDetailModal({
                     onClose()
                     onMessageOwner(listing)
                   }}
-                  className="px-4 py-2.5 rounded-full text-xs font-semibold text-[#1B3B2B] bg-white hover:bg-stone-50 border border-stone-200/90 shadow-2xs transition-all flex items-center space-x-1.5 cursor-pointer"
+                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-full text-xs font-semibold text-[#1B3B2B] bg-white hover:bg-stone-50 border border-stone-200/90 shadow-2xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                   title="Direct message item owner"
                 >
                   <MessageSquare className="w-3.5 h-3.5 text-emerald-800" />
@@ -458,7 +461,7 @@ export function ProductDetailModal({
                 <button
                   type="button"
                   disabled
-                  className="px-6 py-2.5 rounded-full text-xs font-bold text-stone-400 bg-stone-200 cursor-not-allowed shadow-none"
+                  className="flex-1 sm:flex-none px-6 py-2.5 rounded-full text-xs font-bold text-stone-400 bg-stone-200 cursor-not-allowed shadow-none text-center"
                 >
                   Unavailable — Return Overdue
                 </button>
@@ -472,7 +475,7 @@ export function ProductDetailModal({
                       onRequestBooking(listing)
                     }
                   }}
-                  className="px-6 py-2.5 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-sm transition-all cursor-pointer"
+                  className="flex-1 sm:flex-none px-6 py-2.5 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-sm transition-all cursor-pointer text-center"
                 >
                   {user
                     ? listing.listing_type === 'sell'

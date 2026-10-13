@@ -56,10 +56,13 @@ export function SettlementBillModal({
   const b = data?.booking
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 print:p-0 print:bg-white print:static">
-      <div className="bg-[#FBF8F3] rounded-3xl max-w-3xl w-full border border-stone-200/80 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] print:max-h-none print:border-none print:shadow-none print:rounded-none">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 print:p-0 print:bg-white print:static">
+      <div className="bg-[#FBF8F3] rounded-t-3xl sm:rounded-3xl max-w-3xl w-full border border-stone-200/80 shadow-2xl overflow-hidden flex flex-col max-h-[94vh] sm:max-h-[90vh] print:max-h-none print:border-none print:shadow-none print:rounded-none">
+        {/* Mobile Drag Indicator */}
+        <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto my-2 sm:hidden shrink-0 print:hidden" />
+
         {/* Modal Header (Hidden on print) */}
-        <div className="p-4 sm:p-5 bg-white border-b border-stone-200/80 flex items-center justify-between print:hidden">
+        <div className="p-3.5 sm:p-5 bg-white border-b border-stone-200/80 flex items-center justify-between print:hidden">
           <div className="flex items-center space-x-2.5">
             <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#1B3B2B] flex items-center justify-center border border-emerald-100">
               <FileText className="w-5 h-5 text-emerald-800" />
@@ -222,8 +225,8 @@ export function SettlementBillModal({
               </div>
 
               {/* Financial Terms Breakdown Table */}
-              <div className="overflow-hidden rounded-2xl border border-stone-200/80 bg-white">
-                <table className="w-full text-xs text-left">
+              <div className="overflow-x-auto rounded-2xl border border-stone-200/80 bg-white touch-pan-x touch-scroll">
+                <table className="min-w-[500px] w-full text-xs text-left">
                   <thead className="bg-stone-50 border-b border-stone-200/80 text-[10px] uppercase font-mono text-stone-500">
                     <tr>
                       <th className="py-2.5 px-4 font-bold">Itemized Financial Component</th>

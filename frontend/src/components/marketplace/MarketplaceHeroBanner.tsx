@@ -44,9 +44,9 @@ export function MarketplaceHeroBanner({
 
   return (
     <div
-      className="relative rounded-3xl overflow-hidden shadow-sm border border-stone-200/80 min-h-[300px] sm:min-h-[340px] lg:min-h-[370px] flex flex-col justify-between p-6 sm:p-8 lg:p-10"
+      className="relative rounded-3xl overflow-hidden shadow-sm border border-stone-200/80 min-h-[240px] sm:min-h-[340px] lg:min-h-[370px] flex flex-col justify-between p-4 sm:p-8 lg:p-10"
       style={{
-        backgroundImage: `linear-gradient(to right, rgba(251, 248, 243, 0.96) 0%, rgba(251, 248, 243, 0.88) 40%, rgba(251, 248, 243, 0.45) 80%, rgba(251, 248, 243, 0.15) 100%), url(${bannerImg})`,
+        backgroundImage: `linear-gradient(to right, rgba(251, 248, 243, 0.98) 0%, rgba(251, 248, 243, 0.92) 50%, rgba(251, 248, 243, 0.45) 85%, rgba(251, 248, 243, 0.2) 100%), url(${bannerImg})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center right',
       }}
@@ -54,12 +54,12 @@ export function MarketplaceHeroBanner({
       {/* Top/Middle Area: Left Headline & Right Feature Card */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left: Eyebrow, Main Headline & Subtitle matching reference */}
-        <div className="lg:col-span-8 space-y-3 sm:space-y-4 max-w-xl">
+        <div className="lg:col-span-8 space-y-2.5 sm:space-y-4 max-w-xl">
           <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.25em] text-stone-500 font-mono">
             CampusShare
           </span>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold tracking-tight text-stone-900 leading-[1.08]">
+          <h1 className="text-2xl sm:text-4xl lg:text-[44px] font-extrabold tracking-tight text-stone-900 leading-[1.08]">
             Borrow.
             <br />
             Lend. <span className="text-[#2C6E49]">Share.</span>
@@ -107,36 +107,36 @@ export function MarketplaceHeroBanner({
       </div>
 
       {/* Bottom: Embedded Search & Category Bar matching reference */}
-      <div className="mt-6 max-w-2xl">
+      <div className="mt-4 sm:mt-6 max-w-2xl">
         <form
           onSubmit={(e) => {
             e.preventDefault()
             onSearchSubmit()
           }}
-          className="flex items-center bg-white rounded-full border border-stone-200 shadow-md p-1.5 focus-within:ring-3 focus-within:ring-[#1B3B2B]/10 transition-all"
+          className="flex items-center bg-white rounded-full border border-stone-200 shadow-md p-1 sm:p-1.5 focus-within:ring-3 focus-within:ring-[#1B3B2B]/10 transition-all"
         >
-          <div className="flex items-center pl-3 flex-1 min-w-0">
-            <Search className="w-4 h-4 text-stone-400 shrink-0 mr-2.5" />
+          <div className="flex items-center pl-2.5 sm:pl-3 flex-1 min-w-0">
+            <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-400 shrink-0 mr-2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search for items, e.g. calculator, tent, camera..."
+              placeholder="Search items, e.g. calculator, camera..."
               className="w-full text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 bg-transparent outline-none"
             />
           </div>
 
-          <div className="h-5 w-px bg-stone-200 mx-2" />
+          <div className="h-4 sm:h-5 w-px bg-stone-200 mx-1 sm:mx-2 shrink-0" />
 
           {/* Embedded Category Dropdown */}
           <div className="relative shrink-0" ref={dropdownRef}>
             <button
               type="button"
               onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-stone-700 hover:bg-stone-50 cursor-pointer"
+              className="flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-semibold text-stone-700 hover:bg-stone-50 cursor-pointer"
             >
-              <span className="max-w-[120px] truncate">{categoryLabel}</span>
-              <ChevronDown className={`w-3.5 h-3.5 text-stone-400 transition-transform ${categoryDropdownOpen ? 'rotate-180' : ''}`} />
+              <span className="max-w-[70px] sm:max-w-[120px] truncate">{categoryLabel}</span>
+              <ChevronDown className={`w-3 h-3 sm:w-3.5 sm:h-3.5 text-stone-400 transition-transform ${categoryDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {categoryDropdownOpen && (

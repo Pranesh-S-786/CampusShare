@@ -67,14 +67,14 @@ export function MarketplaceTopBar({
   const userInitial = user?.full_name?.charAt(0).toUpperCase() || user?.username?.charAt(0).toUpperCase() || 'S'
 
   return (
-    <header className="sticky top-0 z-30 w-full bg-[#FBF8F3]/95 backdrop-blur-md border-b border-stone-200/80 px-4 sm:px-6 py-2.5">
-      <div className="max-w-[1700px] mx-auto flex items-center justify-between gap-3 sm:gap-6">
+    <header className="sticky top-0 z-30 w-full bg-[#FBF8F3]/95 backdrop-blur-md border-b border-stone-200/80 px-2.5 sm:px-6 py-2 sm:py-2.5">
+      <div className="max-w-[1700px] mx-auto flex items-center justify-between gap-2 sm:gap-6">
         {/* Left: Mobile hamburger & Logo on small screens */}
-        <div className="flex items-center space-x-3 shrink-0">
+        <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
           <button
             type="button"
             onClick={onToggleMobileMenu}
-            className="lg:hidden p-2 rounded-xl text-stone-600 hover:text-stone-900 hover:bg-stone-100 transition-colors cursor-pointer"
+            className="lg:hidden p-1.5 sm:p-2 rounded-xl text-stone-600 hover:text-stone-900 hover:bg-stone-100 transition-colors cursor-pointer"
             aria-label="Toggle navigation"
           >
             <Menu className="w-5 h-5" />
@@ -83,11 +83,11 @@ export function MarketplaceTopBar({
           {/* Brand Logo (Visible on mobile/tablet when sidebar is collapsed) */}
           <div
             onClick={onGoToLanding}
-            className="flex lg:hidden items-center space-x-2 cursor-pointer group"
+            className="flex lg:hidden items-center space-x-1.5 sm:space-x-2 cursor-pointer group"
           >
-            <div className="w-8 h-8 rounded-xl bg-emerald-800 flex items-center justify-center text-white shadow-xs">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-800 flex items-center justify-center text-white shadow-xs">
               <svg
-                className="w-4 h-4 text-white"
+                className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -99,7 +99,7 @@ export function MarketplaceTopBar({
                 <path d="M17 7a5 5 0 0 0-7 7l4 4a5 5 0 0 0 7-7l-4-4" />
               </svg>
             </div>
-            <span className="text-base font-bold text-stone-900 tracking-tight">
+            <span className="text-sm sm:text-base font-bold text-stone-900 tracking-tight">
               Campus<span className="text-emerald-800">Share</span>
             </span>
           </div>
@@ -169,21 +169,21 @@ export function MarketplaceTopBar({
         </div>
 
         {/* Center: Search input matching reference */}
-        <div className="flex-1 max-w-2xl">
+        <div className="flex-1 min-w-[120px] max-w-2xl">
           <div className="relative">
-            <Search className="w-4 h-4 text-stone-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-400 absolute left-3 sm:left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search for books, gadgets, lab equipment, sports gear..."
-              className="w-full pl-11 pr-4 py-2 sm:py-2.5 rounded-full bg-white border border-stone-200/90 focus:border-[#1B3B2B] focus:ring-3 focus:ring-[#1B3B2B]/10 text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 outline-none transition-all shadow-2xs"
+              placeholder="Search items, textbooks, gear..."
+              className="w-full pl-8 sm:pl-11 pr-3 sm:pr-4 py-1.5 sm:py-2.5 rounded-full bg-white border border-stone-200/90 focus:border-[#1B3B2B] focus:ring-3 focus:ring-[#1B3B2B]/10 text-xs sm:text-sm text-stone-900 placeholder:text-stone-400 outline-none transition-all shadow-2xs"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => onSearchChange('')}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-stone-400 hover:text-stone-700"
+                className="absolute right-2.5 sm:right-3.5 top-1/2 -translate-y-1/2 text-[11px] sm:text-xs text-stone-400 hover:text-stone-700"
               >
                 Clear
               </button>
@@ -192,24 +192,24 @@ export function MarketplaceTopBar({
         </div>
 
         {/* Right: Wishlist, Notifications & Account */}
-        <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
-          {/* Wishlist Heart Button */}
+        <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
+          {/* Wishlist Heart Button (Hidden on small screens, accessible in sidebar & bottom nav) */}
           <button
             type="button"
             onClick={onOpenWishlist}
-            className="p-2.5 rounded-full bg-white hover:bg-stone-50 border border-stone-200/90 text-stone-700 hover:text-rose-600 shadow-2xs transition-all cursor-pointer relative"
+            className="hidden md:flex p-2.5 rounded-full bg-white hover:bg-stone-50 border border-stone-200/90 text-stone-700 hover:text-rose-600 shadow-2xs transition-all cursor-pointer relative"
             title="Saved items & wishlist"
             aria-label="Wishlist"
           >
             <Heart className="w-4 h-4" />
           </button>
 
-          {/* Messages Button */}
+          {/* Messages Button (Desktop/Tablet) */}
           {user && onOpenMessages && (
             <button
               type="button"
               onClick={onOpenMessages}
-              className="p-2.5 rounded-full bg-white hover:bg-stone-50 border border-stone-200/90 text-stone-700 hover:text-[#1B3B2B] shadow-2xs transition-all cursor-pointer relative"
+              className="hidden sm:flex p-2.5 rounded-full bg-white hover:bg-stone-50 border border-stone-200/90 text-stone-700 hover:text-[#1B3B2B] shadow-2xs transition-all cursor-pointer relative"
               title="Direct messages"
               aria-label="Messages"
             >
@@ -226,13 +226,13 @@ export function MarketplaceTopBar({
           <button
             type="button"
             onClick={onOpenNotifications}
-            className="p-2.5 rounded-full bg-white hover:bg-stone-50 border border-stone-200/90 text-stone-700 hover:text-[#1B3B2B] shadow-2xs transition-all cursor-pointer relative"
+            className="p-2 sm:p-2.5 rounded-full bg-white hover:bg-stone-50 border border-stone-200/90 text-stone-700 hover:text-[#1B3B2B] shadow-2xs transition-all cursor-pointer relative"
             title="Campus notifications"
             aria-label="Notifications"
           >
             <Bell className="w-4 h-4" />
             {unreadNotificationsCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-[10px] font-bold text-white flex items-center justify-center ring-2 ring-white shadow-xs">
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] sm:min-w-[18px] sm:h-[18px] px-1 rounded-full bg-rose-500 text-[9px] sm:text-[10px] font-bold text-white flex items-center justify-center ring-2 ring-white shadow-xs">
                 {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
               </span>
             )}

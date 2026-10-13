@@ -24,10 +24,13 @@ export function MarketplaceModal({ isOpen, onClose, initialCategory = 'All' }: M
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-stone-900/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-4xl bg-stone-50 rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-stone-900/60 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="w-full max-w-4xl bg-stone-50 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh]">
+        {/* Mobile Drag Indicator Pill */}
+        <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
         {/* Modal Header */}
-        <div className="p-6 bg-white border-b border-stone-200/80 flex items-center justify-between">
+        <div className="p-4 sm:p-6 bg-white border-b border-stone-200/80 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <button
               type="button"

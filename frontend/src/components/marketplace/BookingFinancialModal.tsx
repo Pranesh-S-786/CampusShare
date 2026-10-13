@@ -451,26 +451,29 @@ export function BookingFinancialModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-        <div className="bg-[#FBF8F3] rounded-3xl max-w-2xl w-full border border-stone-200/80 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="fixed inset-0 z-40 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="bg-[#FBF8F3] rounded-t-3xl sm:rounded-3xl max-w-2xl w-full border border-stone-200/80 shadow-2xl overflow-hidden flex flex-col max-h-[94vh] sm:max-h-[90vh]">
+          {/* Mobile Drag Indicator */}
+          <div className="w-12 h-1.5 bg-stone-300 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
           {/* Header */}
-          <div className="p-4 sm:p-5 bg-white border-b border-stone-200/80 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#1B3B2B] text-amber-100 flex items-center justify-center shadow-inner">
-                <CreditCard className="w-5 h-5 text-amber-200" />
+          <div className="p-3.5 sm:p-5 bg-white border-b border-stone-200/80 flex items-center justify-between">
+            <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-[#1B3B2B] text-amber-100 flex items-center justify-center shadow-inner shrink-0">
+                <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-amber-200" />
               </div>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <h3 className="font-bold text-stone-900 text-sm sm:text-base">
+              <div className="min-w-0">
+                <div className="flex items-center space-x-1.5 flex-wrap gap-y-0.5">
+                  <h3 className="font-bold text-stone-900 text-xs sm:text-base truncate">
                     Financial Records & Peer Settlement
                   </h3>
                   {s && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 text-stone-700 font-mono">
-                      Booking #{bookingId}
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-stone-100 text-stone-700 font-mono shrink-0">
+                      #{bookingId}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-stone-500">
+                <p className="text-[11px] sm:text-xs text-stone-500 truncate">
                   Direct peer payment declarations, adjustments & deposit tracking
                 </p>
               </div>
