@@ -272,12 +272,12 @@ export function MarketplaceProductGrid({
                     {item.availability_status === 'return_overdue' ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-600 text-white shadow-2xs backdrop-blur-xs">
                         <Clock className="w-2.5 h-2.5 mr-0.5 animate-pulse" />
-                        Return Overdue
+                        Return overdue — currently unavailable
                       </span>
                     ) : item.availability_status === 'currently_booked' ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-600 text-white shadow-2xs backdrop-blur-xs">
                         <Clock className="w-2.5 h-2.5 mr-0.5" />
-                        Booked {item.booked_until ? `until ${new Date(item.booked_until).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : ''}
+                        Currently rented — unavailable until {item.booked_until ? new Date(item.booked_until).toLocaleDateString([], { month: 'short', day: 'numeric' }) : 'return'}
                       </span>
                     ) : item.is_available ? (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/95 text-emerald-800 shadow-2xs backdrop-blur-xs">

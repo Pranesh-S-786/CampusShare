@@ -54,7 +54,7 @@ export function PostItemModal({
   const [listingType, setListingType] = useState<'lend' | 'rent' | 'sell'>('rent')
   const [condition, setCondition] = useState<'brand_new' | 'like_new' | 'good' | 'fair'>('good')
   const [price, setPrice] = useState('50')
-  const [pricingUnit, setPricingUnit] = useState<'day' | 'week' | 'month' | 'semester' | 'item'>('day')
+  const [pricingUnit, setPricingUnit] = useState<'hour' | 'day' | 'week' | 'month' | 'semester' | 'item'>('day')
   const [depositAmount, setDepositAmount] = useState('0')
   const [pickupLocation, setPickupLocation] = useState('')
   const [collegeId, setCollegeId] = useState<number | null>(null)
@@ -424,7 +424,7 @@ export function PostItemModal({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-stone-700 mb-1">
-                      Rental Price (₹) <span className="text-rose-500">*</span>
+                      {pricingUnit === 'hour' ? 'Hourly Rate (₹/hr)' : 'Rental Price (₹)'} <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -433,7 +433,7 @@ export function PostItemModal({
                       step="any"
                       value={price}
                       onChange={(e) => setPrice(e.target.value)}
-                      placeholder="50"
+                      placeholder={pricingUnit === 'hour' ? '25' : '50'}
                       className="w-full px-3.5 py-2 rounded-xl border border-stone-200 bg-white text-xs font-bold text-stone-900 outline-none focus:border-[#1B3B2B]"
                     />
                   </div>
@@ -447,6 +447,7 @@ export function PostItemModal({
                       onChange={(e) => setPricingUnit(e.target.value as any)}
                       className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-xs text-stone-900 outline-none focus:border-[#1B3B2B]"
                     >
+                      <option value="hour">per hour</option>
                       <option value="day">per day</option>
                       <option value="week">per week</option>
                       <option value="month">per month</option>

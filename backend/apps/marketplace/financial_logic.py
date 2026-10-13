@@ -13,11 +13,18 @@ DISCLAIMER_TEXT = (
 
 def check_payment_prerequisites_for_pickup(booking: Booking) -> Tuple[bool, str]:
     """
-    Enforces Section 2 of CampusShare specification:
+    Enforces Section 1 & 2 of CampusShare specification:
+    - Pre-handover rental agreement terms must be reviewed and agreed before pickup QR can be presented.
     - Active disputes on payments or adjustments block pickup until resolved.
     - If revised advance negotiation is pending, pickup is blocked until resolved.
     - Supports in-person cash/UPI payment during campus handover without blocking QR presentation.
     """
+    # 0. Check pre-handover mutual terms agreement (Section 1)
+    if getattr(booking, 'terms_status', 'agreed') not in ['agreed']:
+        return False, (
+            "Cannot generate pickup QR: Rental terms must be reviewed and agreed by both parties before item handover."
+        )
+
     # 1. Check for active payment disputes
     if booking.payments.filter(status='disputed').exists():
         return False, (
@@ -37,6 +44,51 @@ def check_payment_prerequisites_for_pickup(booking: Booking) -> Tuple[bool, str]
             "Cannot proceed with pickup: A revised advance payment proposal is currently under negotiation. "
             "Both borrower and lender must agree to the revised amount before item handover."
         )
+
+    return True, ""
+
+
+def check_order_closure_eligibility(booking: Booking) -> Tuple[bool, str]:
+    """
+    Validates order closure conditions (Section 4):
+    1. The return QR has been successfully verified (return_confirmed_at is set).
+    2. Both parties have approved the same final bill (settlement_agreed_by_borrower and settlement_agreed_by_lender).
+    3. No unresolved mandatory settlement disputes remain.
+    4. All required direct-payment and refund confirmations have been completed:
+       - If net_borrower_owes_lender > 0: confirmed payments must cover obligations.
+       - If net_lender_owes_borrower > 0: confirmed refund must cover refund amount.
+    """
+    if not booking.return_confirmed_at:
+        return False, "Cannot close order: Return QR handover has not yet been verified."
+
+    borrower_agreed = getattr(booking, 'settlement_agreed_by_borrower', False)
+    lender_agreed = getattr(booking, 'settlement_agreed_by_lender', False)
+    if not (borrower_agreed and lender_agreed):
+        return False, "Cannot close order: Both parties must approve the same final bill."
+
+    if booking.payments.filter(status='disputed').exists():
+        return False, "Cannot close order: There is an active disputed payment declaration."
+
+    if booking.adjustments.filter(status='disputed').exists():
+        return False, "Cannot close order: There is an active disputed adjustment."
+
+    fin = get_booking_financial_summary(booking)
+
+    net_borrower = Decimal(fin['net_borrower_owes_lender'])
+    net_lender = Decimal(fin['net_lender_owes_borrower'])
+
+    if net_borrower > Decimal('0.00'):
+        confirmed_rev = Decimal(fin['total_confirmed_received'])
+        total_ob = Decimal(fin['total_obligations'])
+        if confirmed_rev < total_ob:
+            outstanding = total_ob - confirmed_rev
+            return False, f"Awaiting payment confirmation: ₹{outstanding:.2f} remains outstanding to be confirmed by lender."
+
+    if net_lender > Decimal('0.00'):
+        refund_obj = getattr(booking, 'deposit_refund', None)
+        if not refund_obj or refund_obj.status != 'confirmed':
+            outstanding = net_lender - Decimal(fin['refund_confirmed_amount'])
+            return False, f"Awaiting refund confirmation: ₹{outstanding:.2f} refund remains to be confirmed by borrower."
 
     return True, ""
 

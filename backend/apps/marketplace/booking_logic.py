@@ -9,7 +9,8 @@ from .models import Listing, Booking
 def calculate_booking_quote(
     listing: Listing,
     start_date: date,
-    end_date: Optional[date] = None
+    end_date: Optional[date] = None,
+    planned_hours: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Calculates estimated duration, rental cost, deposit, and total amount due upfront.
@@ -43,7 +44,10 @@ def calculate_booking_quote(
         pricing_unit = listing.pricing_unit or 'day'
         deposit = listing.deposit_amount or Decimal('0.00')
 
-        if pricing_unit == 'day':
+        if pricing_unit == 'hour':
+            hours = planned_hours if (planned_hours and planned_hours > 0) else max(1, duration_days if duration_days > 1 else 1)
+            total_rent = unit_price * Decimal(str(hours))
+        elif pricing_unit == 'day':
             total_rent = unit_price * Decimal(duration_days)
         elif pricing_unit == 'week':
             weeks = max(math.ceil(duration_days / 7), 1)
@@ -115,10 +119,8 @@ def check_booking_conflict(
                 "This item is currently out on rental and overdue for return. "
                 "New bookings are locked until the item's return is physically verified."
             )
-        return (
-            f"This item already has a confirmed or active booking in progress with another borrower until "
-            f"{active_b.end_date.strftime('%b %d, %Y') if active_b.end_date else 'return verification'}."
-        )
+        date_str = active_b.end_date.strftime('%b %d, %Y') if active_b.end_date else 'return verification'
+        return f"This item already has a confirmed or active booking. Currently rented — unavailable until {date_str}."
 
     # 2. Check overlapping accepted or future active bookings
     overlapping = Booking.objects.filter(
@@ -151,71 +153,57 @@ def get_listing_availability_info(listing: Listing) -> Dict[str, Any]:
     - 'unavailable'
     Enforces that unreturned items remain unavailable even after scheduled end date has passed.
     """
-    if not listing.is_available or listing.status in ['paused', 'archived', 'unavailable', 'rented']:
-        # Check if overdue active rental
-        today = date.today()
-        active_rental = listing.bookings.filter(
-            status='active',
-            return_confirmed_at__isnull=True
-        ).first()
+    today = date.today()
 
-        if active_rental:
-            if active_rental.end_date and today > active_rental.end_date:
-                return {
-                    'availability_status': 'return_overdue',
-                    'status_label': 'Return overdue',
-                    'booked_until': active_rental.end_date.isoformat() if active_rental.end_date else None,
-                    'active_booking_id': active_rental.id,
-                }
-            return {
-                'availability_status': 'currently_booked',
-                'status_label': f"Booked until {active_rental.end_date.strftime('%b %d') if active_rental.end_date else 'return'}",
-                'booked_until': active_rental.end_date.isoformat() if active_rental.end_date else None,
-                'active_booking_id': active_rental.id,
-            }
-
-        # Check if accepted upcoming rental starting now
-        current_accepted = listing.bookings.filter(
-            status='accepted',
-            start_date__lte=today,
-            end_date__gte=today
-        ).first()
-
-        if current_accepted:
-            return {
-                'availability_status': 'currently_booked',
-                'status_label': f"Booked until {current_accepted.end_date.strftime('%b %d') if current_accepted.end_date else 'return'}",
-                'booked_until': current_accepted.end_date.isoformat() if current_accepted.end_date else None,
-                'active_booking_id': current_accepted.id,
-            }
-
-        return {
-            'availability_status': 'unavailable',
-            'status_label': 'Not available',
-            'booked_until': None,
-            'active_booking_id': None,
-        }
-
-    # Item is marked available, but check if there are active unreturned bookings
+    # 1. Check if there is an active unreturned rental
     active_rental = listing.bookings.filter(
         status='active',
         return_confirmed_at__isnull=True
-    ).first()
+    ).order_by('-created_at').first()
 
     if active_rental:
-        today = date.today()
+        date_str = active_rental.end_date.strftime('%b %d, %Y') if active_rental.end_date else 'return verification'
         if active_rental.end_date and today > active_rental.end_date:
             return {
                 'availability_status': 'return_overdue',
                 'status_label': 'Return overdue',
                 'booked_until': active_rental.end_date.isoformat() if active_rental.end_date else None,
                 'active_booking_id': active_rental.id,
+                'expected_return_date': date_str,
             }
         return {
             'availability_status': 'currently_booked',
-            'status_label': f"Booked until {active_rental.end_date.strftime('%b %d') if active_rental.end_date else 'return'}",
+            'status_label': f"Currently rented — unavailable until {date_str}",
             'booked_until': active_rental.end_date.isoformat() if active_rental.end_date else None,
             'active_booking_id': active_rental.id,
+            'expected_return_date': date_str,
+        }
+
+    # 2. Check if accepted rental starting on or before today
+    current_accepted = listing.bookings.filter(
+        status='accepted',
+        start_date__lte=today,
+        end_date__gte=today
+    ).order_by('-created_at').first()
+
+    if current_accepted:
+        date_str = current_accepted.end_date.strftime('%b %d, %Y') if current_accepted.end_date else 'return verification'
+        return {
+            'availability_status': 'currently_booked',
+            'status_label': f"Currently rented — unavailable until {date_str}",
+            'booked_until': current_accepted.end_date.isoformat() if current_accepted.end_date else None,
+            'active_booking_id': current_accepted.id,
+            'expected_return_date': date_str,
+        }
+
+    # 3. Check if marked unavailable or archived or rented
+    if not listing.is_available or listing.status in ['paused', 'archived', 'unavailable', 'rented']:
+        return {
+            'availability_status': 'unavailable',
+            'status_label': 'Not available',
+            'booked_until': None,
+            'active_booking_id': None,
+            'expected_return_date': None,
         }
 
     return {
@@ -223,5 +211,6 @@ def get_listing_availability_info(listing: Listing) -> Dict[str, Any]:
         'status_label': 'Available',
         'booked_until': None,
         'active_booking_id': None,
+        'expected_return_date': None,
     }
 

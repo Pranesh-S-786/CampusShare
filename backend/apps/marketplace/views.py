@@ -204,12 +204,21 @@ class ListingDetailView(APIView):
 
         self.check_object_permissions(request, listing)
 
+        # Check for active bookings before deletion
+        has_active = listing.bookings.filter(status__in=['accepted', 'active', 'returned']).exists()
+        if has_active:
+            return Response(
+                {'error': 'Cannot delete listing: An active rental or unresolved settlement is currently in progress.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         listing.status = 'archived'
         listing.is_available = False
-        listing.save(update_fields=['status', 'is_available', 'updated_at'])
+        listing.is_visible = False
+        listing.save(update_fields=['status', 'is_available', 'is_visible', 'updated_at'])
 
         return Response({
-            'message': 'Listing has been archived successfully.',
+            'message': 'Listing has been deleted successfully from marketplace discovery.',
             'listing': ListingSerializer(listing).data
         }, status=status.HTTP_200_OK)
 
@@ -561,6 +570,18 @@ class BookingActionView(APIView):
                 booking.record_status_change('accepted', actor_id=profile.id, note=note or 'Owner accepted booking')
                 booking.owner_response_note = note
 
+                # If rental, set terms agreement status awaiting mutual review
+                if booking.booking_type in ['rent', 'lend']:
+                    booking.terms_status = 'pending_review'
+                    booking.terms_agreed_by_lender = False
+                    booking.terms_agreed_by_borrower = False
+                    if booking.proposed_rent_rate is None:
+                        booking.proposed_rent_rate = booking.snapshot_price
+                    if booking.proposed_pricing_unit is None:
+                        booking.proposed_pricing_unit = booking.snapshot_pricing_unit
+                    if booking.proposed_deposit_amount is None:
+                        booking.proposed_deposit_amount = booking.snapshot_deposit_amount
+
                 # If item is sold, update listing availability
                 if booking.booking_type == 'buy':
                     listing.status = 'rented'
@@ -589,13 +610,20 @@ class BookingActionView(APIView):
                     listing.save(update_fields=['status', 'is_available', 'updated_at'])
 
             elif action == 'complete':
+                from .financial_logic import check_order_closure_eligibility
+                eligible, err_msg = check_order_closure_eligibility(booking)
+                if not eligible:
+                    return Response({'error': err_msg}, status=status.HTTP_400_BAD_REQUEST)
+
                 booking.record_status_change('completed', actor_id=profile.id, note=note or 'Booking marked completed')
                 booking.owner_response_note = note
+                booking.relist_prompted = True
                 booking.save()
 
+                # Do not automatically reactivate listing; wait for lender's explicit re-listing choice
                 if booking.booking_type in ['rent', 'lend']:
-                    listing.is_available = True
-                    listing.status = 'active'
+                    listing.is_available = False
+                    listing.status = 'unavailable'
                     listing.save(update_fields=['status', 'is_available', 'updated_at'])
 
             return Response({
@@ -1419,7 +1447,14 @@ class PaymentConfirmView(APIView):
                 actor_id=profile.id,
                 note=f"Recipient confirmed receipt of ₹{payment.amount} ({payment.purpose})"
             )
-            booking.save(update_fields=['status_history', 'updated_at'])
+            from .financial_logic import check_order_closure_eligibility
+            eligible, _ = check_order_closure_eligibility(booking)
+            if eligible and booking.status != 'completed':
+                booking.record_status_change('completed', actor_id=profile.id, note="Order automatically completed: Required payment confirmed and all obligations settled.")
+                booking.relist_prompted = True
+                booking.save(update_fields=['status', 'status_history', 'relist_prompted', 'updated_at'])
+            else:
+                booking.save(update_fields=['status_history', 'updated_at'])
 
         from .notification_service import notify_payment_confirmed
         notify_payment_confirmed(payment)
@@ -1784,13 +1819,17 @@ class DepositRefundConfirmView(APIView):
                 refund.dispute_reason = dispute_reason
                 refund.save(update_fields=['status', 'disputed_at', 'disputed_by', 'dispute_reason', 'updated_at'])
 
-                booking.record_status_change(
-                    booking.status,
-                    actor_id=profile.id,
-                    note=f"Borrower disputed deposit refund: {dispute_reason}"
-                )
-
-            booking.save(update_fields=['status_history', 'updated_at'])
+            if action == 'confirm':
+                from .financial_logic import check_order_closure_eligibility
+                eligible, _ = check_order_closure_eligibility(booking)
+                if eligible and booking.status != 'completed':
+                    booking.record_status_change('completed', actor_id=profile.id, note="Order automatically completed: Deposit refund confirmed and all obligations settled.")
+                    booking.relist_prompted = True
+                    booking.save(update_fields=['status', 'status_history', 'relist_prompted', 'updated_at'])
+                else:
+                    booking.save(update_fields=['status_history', 'updated_at'])
+            else:
+                booking.save(update_fields=['status_history', 'updated_at'])
 
         if action == 'confirm':
             from .notification_service import notify_refund_confirmed
@@ -2448,6 +2487,241 @@ class BookingRespondAdvanceView(APIView):
 
 
 # ========================================================
+# MUTUAL TERMS ADJUSTMENT VIEWS (Section 1)
+# ========================================================
+
+class BookingProposeTermsView(APIView):
+    """
+    After booking acceptance, allows the lender to review rental amounts before handover.
+    The lender can either confirm the existing terms (adjust=False) or propose adjusted
+    rental amounts, unit, and deposit (adjust=True).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        from .serializers import TermsProposeSerializer, BookingSerializer
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return Response({'error': 'Student profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            booking = Booking.objects.select_related('borrower', 'lender', 'listing').get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({'error': 'Booking not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.id != booking.lender_id:
+            return Response({'error': 'Unauthorized: Only the lender can propose terms adjustments.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if booking.status != 'accepted':
+            return Response({'error': f'Terms adjustment is only available for accepted bookings (current status: {booking.status}).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if booking.pickup_confirmed_at is not None:
+            return Response({'error': 'Cannot modify terms after item pickup has already been verified.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = TermsProposeSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        adjust = serializer.validated_data.get('adjust', False)
+        note = serializer.validated_data.get('note', '').strip()
+
+        from .models import Notification
+        from django.utils import timezone
+
+        if not adjust:
+            # Lender retains existing terms
+            booking.terms_agreed_by_lender = True
+            booking.proposed_rent_rate = None
+            booking.proposed_pricing_unit = None
+            booking.proposed_deposit_amount = None
+            booking.proposed_terms_note = note
+
+            if booking.terms_agreed_by_borrower:
+                booking.terms_status = 'agreed'
+                booking.terms_agreed_at = timezone.now()
+                msg = "Confirmed existing rental terms. Both parties are now in agreement!"
+            else:
+                booking.terms_status = 'pending_review'
+                msg = "Confirmed existing rental terms. Awaiting borrower's confirmation."
+
+            booking.record_status_change(
+                booking.status,
+                actor_id=profile.id,
+                note=f"Lender confirmed existing rental terms (₹{booking.snapshot_price}/{booking.snapshot_pricing_unit}, deposit ₹{booking.snapshot_deposit_amount})."
+            )
+            booking.save()
+
+            Notification.objects.create(
+                recipient=booking.borrower,
+                actor=profile,
+                notification_type='terms_review_requested',
+                title='Rental Terms Ready for Review',
+                message=f"Lender confirmed the rental terms for '{booking.listing.title}'. Please review and accept them before pickup.",
+                booking=booking,
+                target_modal='my_bookings',
+                target_id=str(booking.id)
+            )
+        else:
+            # Lender proposes adjusted amounts
+            proposed_rent = serializer.validated_data.get('proposed_rent_rate')
+            proposed_unit = serializer.validated_data.get('proposed_pricing_unit') or booking.snapshot_pricing_unit
+            proposed_deposit = serializer.validated_data.get('proposed_deposit_amount')
+
+            if proposed_rent is None:
+                proposed_rent = booking.snapshot_price
+            if proposed_deposit is None:
+                proposed_deposit = booking.snapshot_deposit_amount
+
+            booking.proposed_rent_rate = proposed_rent
+            booking.proposed_pricing_unit = proposed_unit
+            booking.proposed_deposit_amount = proposed_deposit
+            booking.proposed_terms_note = note
+            booking.terms_status = 'adjustment_proposed'
+            booking.terms_agreed_by_lender = True
+            booking.terms_agreed_by_borrower = False
+            booking.record_status_change(
+                booking.status,
+                actor_id=profile.id,
+                note=f"Lender proposed revised terms: ₹{proposed_rent}/{proposed_unit}, deposit ₹{proposed_deposit}. Note: {note}"
+            )
+            booking.save()
+
+            Notification.objects.create(
+                recipient=booking.borrower,
+                actor=profile,
+                notification_type='terms_adjusted',
+                title='Revised Rental Terms Proposed',
+                message=f"Lender proposed revised terms for '{booking.listing.title}': ₹{proposed_rent}/{proposed_unit}, deposit ₹{proposed_deposit}. Please review and accept.",
+                booking=booking,
+                target_modal='my_bookings',
+                target_id=str(booking.id)
+            )
+            msg = f"Revised terms proposed (₹{proposed_rent}/{proposed_unit}, deposit ₹{proposed_deposit}). Sent to borrower for approval."
+
+        return Response({
+            'message': msg,
+            'booking': BookingSerializer(booking).data
+        })
+
+
+class BookingRespondTermsView(APIView):
+    """
+    Borrower accepts or rejects the proposed rental terms before pickup.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        from .serializers import TermsRespondSerializer, BookingSerializer
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return Response({'error': 'Student profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            booking = Booking.objects.select_related('borrower', 'lender', 'listing').get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({'error': 'Booking not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.id != booking.borrower_id:
+            return Response({'error': 'Unauthorized: Only the borrower can respond to rental terms.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if booking.status != 'accepted':
+            return Response({'error': f'Terms response is only available for accepted bookings (current status: {booking.status}).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if booking.pickup_confirmed_at is not None:
+            return Response({'error': 'Cannot modify terms after item pickup has already been verified.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = TermsRespondSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        action = serializer.validated_data['action']
+        note = serializer.validated_data.get('note', '').strip()
+
+        from .models import Notification
+        from django.utils import timezone
+
+        if action == 'accept':
+            if booking.terms_status == 'adjustment_proposed' and booking.proposed_rent_rate is not None:
+                booking.snapshot_price = booking.proposed_rent_rate
+                booking.snapshot_pricing_unit = booking.proposed_pricing_unit or booking.snapshot_pricing_unit
+                booking.snapshot_deposit_amount = booking.proposed_deposit_amount if booking.proposed_deposit_amount is not None else booking.snapshot_deposit_amount
+                booking.agreed_advance_amount = booking.snapshot_deposit_amount
+
+                # Recalculate rent snapshot
+                unit = booking.snapshot_pricing_unit
+                days = booking.duration_days or 1
+                if unit == 'hour':
+                    booking.calculated_total_rent = booking.snapshot_price * Decimal(str(max(1, days * 24 if days > 1 else 1)))
+                elif unit == 'day':
+                    booking.calculated_total_rent = booking.snapshot_price * Decimal(str(days))
+                elif unit == 'week':
+                    import math
+                    weeks = max(math.ceil(days / 7), 1)
+                    booking.calculated_total_rent = booking.snapshot_price * Decimal(str(weeks))
+                elif unit == 'month':
+                    import math
+                    months = max(math.ceil(days / 30), 1)
+                    booking.calculated_total_rent = booking.snapshot_price * Decimal(str(months))
+                elif unit == 'semester':
+                    import math
+                    semesters = max(math.ceil(days / 120), 1)
+                    booking.calculated_total_rent = booking.snapshot_price * Decimal(str(semesters))
+                else:
+                    booking.calculated_total_rent = booking.snapshot_price
+
+                booking.total_due_upfront = booking.calculated_total_rent + booking.snapshot_deposit_amount
+
+            booking.terms_status = 'agreed'
+            booking.terms_agreed_by_borrower = True
+            booking.terms_agreed_by_lender = True
+            booking.terms_agreed_at = timezone.now()
+            booking.record_status_change(
+                booking.status,
+                actor_id=profile.id,
+                note=f"Borrower accepted agreed rental terms. Snapshots frozen at ₹{booking.snapshot_price}/{booking.snapshot_pricing_unit}, deposit ₹{booking.snapshot_deposit_amount}."
+            )
+            booking.save()
+
+            Notification.objects.create(
+                recipient=booking.lender,
+                actor=profile,
+                notification_type='terms_agreed',
+                title='Rental Terms Agreed!',
+                message=f"Borrower accepted rental terms for '{booking.listing.title}'. Handover QR can now be presented!",
+                booking=booking,
+                target_modal='incoming_bookings',
+                target_id=str(booking.id)
+            )
+            msg = "Rental terms accepted! You and the lender are now ready for item handover."
+        else:
+            booking.terms_status = 'rejected'
+            booking.terms_agreed_by_borrower = False
+            booking.record_status_change(
+                booking.status,
+                actor_id=profile.id,
+                note=f"Borrower declined / requested changes to proposed terms. Note: {note}"
+            )
+            booking.save()
+
+            Notification.objects.create(
+                recipient=booking.lender,
+                actor=profile,
+                notification_type='terms_rejected',
+                title='Rental Terms Declined / Change Requested',
+                message=f"Borrower declined or requested changes for '{booking.listing.title}'. Note: {note}",
+                booking=booking,
+                target_modal='incoming_bookings',
+                target_id=str(booking.id)
+            )
+            msg = "Terms proposal declined. The booking remains pending mutual agreement."
+
+        return Response({
+            'message': msg,
+            'booking': BookingSerializer(booking).data
+        })
+
+
+# ========================================================
 # RENT ADJUSTMENT VIEWS (Section 4)
 # ========================================================
 
@@ -2659,6 +2933,11 @@ class BookingAgreeSettlementView(APIView):
         if booking.settlement_agreed_by_borrower and booking.settlement_agreed_by_lender:
             booking.settlement_agreed_at = now
             booking.record_status_change(booking.status, actor_id=profile.id, note="Mutual settlement agreement reached by both parties.")
+            from .financial_logic import check_order_closure_eligibility
+            eligible, _ = check_order_closure_eligibility(booking)
+            if eligible and booking.status != 'completed':
+                booking.record_status_change('completed', actor_id=profile.id, note="Order automatically completed: Final bill agreed and all settlement conditions met.")
+                booking.relist_prompted = True
 
         booking.save()
 

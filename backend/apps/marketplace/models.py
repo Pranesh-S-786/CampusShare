@@ -44,6 +44,7 @@ class Listing(models.Model):
     ]
 
     PRICING_UNIT_CHOICES = [
+        ('hour', 'hour'),
         ('day', 'day'),
         ('week', 'week'),
         ('month', 'month'),
@@ -201,6 +202,43 @@ class Booking(models.Model):
     # Handover timestamps
     pickup_confirmed_at = models.DateTimeField(null=True, blank=True)
     return_confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    # Mutual Rental Terms Agreement (Section 1: Post-Acceptance, Pre-Handover)
+    terms_status = models.CharField(
+        max_length=25,
+        default='agreed',
+        choices=[
+            ('pending_review', 'Pending Review'),
+            ('adjustment_proposed', 'Adjustment Proposed by Lender'),
+            ('agreed', 'Terms Agreed by Both Parties'),
+            ('rejected', 'Terms Rejected / Pending Revision'),
+        ],
+        help_text="Mutual agreement state for rental rate, unit, and advance terms before pickup"
+    )
+    terms_agreed_by_lender = models.BooleanField(default=True)
+    terms_agreed_by_borrower = models.BooleanField(default=True)
+    terms_agreed_at = models.DateTimeField(null=True, blank=True)
+    proposed_rent_rate = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Lender-proposed revised rental rate before pickup"
+    )
+    proposed_pricing_unit = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        help_text="Lender-proposed revised pricing unit before pickup"
+    )
+    proposed_deposit_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Lender-proposed revised advance/deposit amount before pickup"
+    )
+    proposed_terms_note = models.TextField(blank=True, help_text="Notes/reason for proposed pre-handover terms adjustment")
 
     # Mutual Advance Payment Negotiation & Confirmation (Section 2)
     agreed_advance_amount = models.DecimalField(

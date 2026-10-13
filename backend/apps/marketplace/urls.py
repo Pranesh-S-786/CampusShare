@@ -39,6 +39,8 @@ from .views import (
     ConversationDetailView,
     ConversationMessagesView,
     # Complete Lifecycle & Trust Enhancements
+    BookingProposeTermsView,
+    BookingRespondTermsView,
     BookingProposeAdvanceView,
     BookingRespondAdvanceView,
     BookingProposeRentAdjustmentView,
@@ -87,6 +89,10 @@ urlpatterns = [
     path('upload-payment-evidence/', PaymentEvidenceUploadView.as_view(), name='upload-payment-evidence'),
 
     # Complete Lifecycle & Trust Enhancements
+    path('bookings/<int:pk>/terms/propose/', BookingProposeTermsView.as_view(), name='booking-terms-propose'),
+    path('bookings/<int:pk>/propose-terms/', BookingProposeTermsView.as_view(), name='booking-propose-terms'),
+    path('bookings/<int:pk>/terms/respond/', BookingRespondTermsView.as_view(), name='booking-terms-respond'),
+    path('bookings/<int:pk>/respond-terms/', BookingRespondTermsView.as_view(), name='booking-respond-terms'),
     path('bookings/<int:pk>/propose-advance/', BookingProposeAdvanceView.as_view(), name='booking-propose-advance'),
     path('bookings/<int:pk>/advance/propose/', BookingProposeAdvanceView.as_view(), name='booking-advance-propose'),
     path('bookings/<int:pk>/respond-advance/', BookingRespondAdvanceView.as_view(), name='booking-respond-advance'),

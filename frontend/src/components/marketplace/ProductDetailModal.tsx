@@ -242,6 +242,20 @@ export function ProductDetailModal({
                     </span>
                   </div>
                 )}
+
+                {/* Rental Availability Banner (Requirement 6) */}
+                {listing.availability_status === 'currently_booked' && (
+                  <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center space-x-2">
+                    <Clock className="w-4 h-4 text-amber-700 shrink-0" />
+                    <span className="font-semibold">{listing.availability_label || `Currently rented — unavailable until ${listing.booked_until ? new Date(listing.booked_until).toLocaleDateString() : 'return'}`}</span>
+                  </div>
+                )}
+                {listing.availability_status === 'return_overdue' && (
+                  <div className="mt-2.5 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs flex items-center space-x-2">
+                    <AlertCircle className="w-4 h-4 text-rose-700 shrink-0" />
+                    <span className="font-semibold">Return overdue — currently unavailable</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2 pt-1">
@@ -468,7 +482,23 @@ export function ProductDetailModal({
                   disabled
                   className="flex-1 sm:flex-none px-6 py-2.5 rounded-full text-xs font-bold text-stone-400 bg-stone-200 cursor-not-allowed shadow-none text-center"
                 >
-                  Unavailable — Return Overdue
+                  Return overdue — currently unavailable
+                </button>
+              ) : listing.availability_status === 'currently_booked' ? (
+                <button
+                  type="button"
+                  disabled
+                  className="flex-1 sm:flex-none px-6 py-2.5 rounded-full text-xs font-bold text-amber-900 bg-amber-100/90 border border-amber-200 cursor-not-allowed shadow-none text-center"
+                >
+                  {listing.availability_label || (listing.booked_until ? `Currently rented — unavailable until ${new Date(listing.booked_until).toLocaleDateString()}` : 'Currently Rented')}
+                </button>
+              ) : !listing.is_available ? (
+                <button
+                  type="button"
+                  disabled
+                  className="flex-1 sm:flex-none px-6 py-2.5 rounded-full text-xs font-bold text-stone-400 bg-stone-200 cursor-not-allowed shadow-none text-center"
+                >
+                  Currently Unavailable
                 </button>
               ) : (
                 <button

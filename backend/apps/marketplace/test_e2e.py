@@ -244,6 +244,19 @@ class Stage10EndToEndAndSecurityTests(TestCase):
         notif_b = self.client.get('/api/marketplace/notifications/')
         self.assertTrue(any(n['notification_type'] == 'booking_accepted' for n in notif_b.data['notifications']))
 
+        # Step 5B: Mutual Terms Review and Agreement (Requirement 1)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_a.key}')
+        terms_prop = self.client.post(f'/api/marketplace/bookings/{booking_id}/terms/propose/', {
+            'adjust': False,
+        })
+        self.assertEqual(terms_prop.status_code, status.HTTP_200_OK)
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_b.key}')
+        terms_resp = self.client.post(f'/api/marketplace/bookings/{booking_id}/terms/respond/', {
+            'action': 'accept',
+        })
+        self.assertEqual(terms_resp.status_code, status.HTTP_200_OK)
+
         # ==========================================
         # STEP 6: Mutual Advance Confirmation & Pickup Handover
         # ==========================================
@@ -383,6 +396,15 @@ class Stage10EndToEndAndSecurityTests(TestCase):
         })
         self.assertEqual(ref_conf.status_code, status.HTTP_200_OK)
         self.assertEqual(ref_conf.data['deposit_refund']['status'], 'confirmed')
+
+        # Both parties approve the final settlement bill (Requirement 3 & 4)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_a.key}')
+        agree_a = self.client.post(f'/api/marketplace/bookings/{booking_id}/agree-settlement/')
+        self.assertEqual(agree_a.status_code, status.HTTP_200_OK)
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_b.key}')
+        agree_b = self.client.post(f'/api/marketplace/bookings/{booking_id}/agree-settlement/')
+        self.assertEqual(agree_b.status_code, status.HTTP_200_OK)
 
         # Owner marks booking complete
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_a.key}')

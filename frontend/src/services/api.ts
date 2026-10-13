@@ -367,7 +367,7 @@ export interface MarketplaceListing {
   condition_display: string
   price: string | number
   deposit_amount: string | number
-  pricing_unit: 'day' | 'week' | 'month' | 'semester' | 'item'
+  pricing_unit: 'hour' | 'day' | 'week' | 'month' | 'semester' | 'item'
   pickup_location?: string
   image_url: string
   images: ListingImageItem[]
@@ -573,6 +573,14 @@ export interface Booking {
   total_due_upfront: string
   pickup_confirmed_at?: string | null
   return_confirmed_at?: string | null
+  terms_status?: 'pending_review' | 'adjustment_proposed' | 'agreed' | 'rejected'
+  terms_agreed_by_lender?: boolean
+  terms_agreed_by_borrower?: boolean
+  terms_agreed_at?: string | null
+  proposed_rent_rate?: string | number | null
+  proposed_pricing_unit?: string | null
+  proposed_deposit_amount?: string | number | null
+  proposed_terms_note?: string
   agreed_advance_amount?: string | number | null
   advance_negotiation_status?: 'agreed' | 'proposed' | 'rejected'
   advance_proposal_notes?: string
@@ -1540,6 +1548,51 @@ export async function getProfileTrustScore(profileId: number): Promise<TrustScor
   return handleResponse(res)
 }
 
+// Mutual Terms Review & Agreement (Enhancement 1)
+export interface TermsProposePayload {
+  adjust: boolean
+  proposed_rent_rate?: string | number
+  proposed_pricing_unit?: string
+  proposed_deposit_amount?: string | number
+  note?: string
+}
 
+export interface TermsRespondPayload {
+  action: 'accept' | 'reject'
+  note?: string
+}
 
+export async function proposeBookingTerms(
+  bookingId: number,
+  payload: TermsProposePayload
+): Promise<{ message: string; booking: Booking }> {
+  const res = await fetch(`${API_BASE_URL}/marketplace/bookings/${bookingId}/terms/propose/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  return handleResponse(res)
+}
 
+export async function respondBookingTerms(
+  bookingId: number,
+  payload: TermsRespondPayload
+): Promise<{ message: string; booking: Booking }> {
+  const res = await fetch(`${API_BASE_URL}/marketplace/bookings/${bookingId}/terms/respond/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  return handleResponse(res)
+}
+
+// Listing Deletion (Enhancement 7)
+export async function deleteMarketplaceListing(
+  listingId: number
+): Promise<{ message: string; listing: MarketplaceListing }> {
+  const res = await fetch(`${API_BASE_URL}/marketplace/listings/${listingId}/`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  })
+  return handleResponse(res)
+}

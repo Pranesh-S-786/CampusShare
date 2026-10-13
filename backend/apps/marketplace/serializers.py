@@ -200,7 +200,7 @@ class ListingWriteSerializer(serializers.ModelSerializer):
         elif listing_type == 'rent':
             if price <= Decimal('0.00'):
                 raise serializers.ValidationError({'price': 'Rental listings require a price per period greater than 0.'})
-            if pricing_unit not in ['day', 'week', 'month', 'semester']:
+            if pricing_unit not in ['hour', 'day', 'week', 'month', 'semester']:
                 attrs['pricing_unit'] = 'day'
         elif listing_type == 'sell':
             if price <= Decimal('0.00'):
@@ -330,6 +330,14 @@ class BookingSerializer(serializers.ModelSerializer):
             'agreed_advance_amount',
             'advance_negotiation_status',
             'advance_proposal_notes',
+            'terms_status',
+            'terms_agreed_by_lender',
+            'terms_agreed_by_borrower',
+            'terms_agreed_at',
+            'proposed_rent_rate',
+            'proposed_pricing_unit',
+            'proposed_deposit_amount',
+            'proposed_terms_note',
             'calculated_total_rent',
             'actual_rent_calculated',
             'actual_duration_display',
@@ -357,6 +365,23 @@ class BookingSerializer(serializers.ModelSerializer):
     def get_financial_summary(self, obj):
         from .financial_logic import get_booking_financial_summary
         return get_booking_financial_summary(obj)
+
+
+# ========================================================
+# MUTUAL TERMS ADJUSTMENT SERIALIZERS (Section 1)
+# ========================================================
+
+class TermsProposeSerializer(serializers.Serializer):
+    adjust = serializers.BooleanField(default=False)
+    proposed_rent_rate = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.00'), required=False, allow_null=True)
+    proposed_pricing_unit = serializers.ChoiceField(choices=Listing.PRICING_UNIT_CHOICES, required=False, allow_null=True)
+    proposed_deposit_amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.00'), required=False, allow_null=True)
+    note = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
+
+
+class TermsRespondSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=['accept', 'reject'])
+    note = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
 
 
 # ========================================================

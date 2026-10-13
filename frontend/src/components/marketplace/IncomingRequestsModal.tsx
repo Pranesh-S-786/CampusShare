@@ -16,6 +16,7 @@ import {
   Camera,
   Sparkles,
   CreditCard,
+  FileCheck2,
 } from 'lucide-react'
 import {
   type Booking,
@@ -26,6 +27,9 @@ import { useAuth } from '../../context/AuthContext'
 import { HandoverQRModal } from './HandoverQRModal'
 import { HandoverScanModal } from './HandoverScanModal'
 import { BookingFinancialModal } from './BookingFinancialModal'
+import { TermsAgreementModal } from './TermsAgreementModal'
+import { AdvancePaymentModal } from './AdvancePaymentModal'
+import { RelistChoiceModal } from './RelistChoiceModal'
 
 interface IncomingRequestsModalProps {
   isOpen: boolean
@@ -65,6 +69,18 @@ export function IncomingRequestsModal({
   // Stage 8 Financial Management Modal state
   const [financialModalBookingId, setFinancialModalBookingId] = useState<number | null>(null)
   const [isFinancialModalOpen, setIsFinancialModalOpen] = useState(false)
+
+  // Enhancement 1: Terms Agreement Modal
+  const [termsModalBooking, setTermsModalBooking] = useState<Booking | null>(null)
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false)
+
+  // Enhancement 2: Advance Payment Confirmation Modal
+  const [advanceModalBooking, setAdvanceModalBooking] = useState<Booking | null>(null)
+  const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false)
+
+  // Enhancement 5: Re-listing Modal
+  const [relistBooking, setRelistBooking] = useState<Booking | null>(null)
+  const [isRelistOpen, setIsRelistOpen] = useState(false)
 
   const loadIncoming = useCallback(async () => {
     if (!user) return
@@ -112,7 +128,7 @@ export function IncomingRequestsModal({
     setActionError(null)
 
     try {
-      await actionBooking(bookingId, {
+      const res = await actionBooking(bookingId, {
         action: actionType,
         note: actionNote.trim() || undefined,
         start_date: actionType === 'accept' && adjustedStartDate ? adjustedStartDate : undefined,
@@ -120,6 +136,12 @@ export function IncomingRequestsModal({
       })
       handleCancelAction()
       loadIncoming()
+
+      // Enhancement 1: Mutual terms review popup on acceptance
+      if (actionType === 'accept' && res.booking && res.booking.snapshot_listing_type !== 'sell') {
+        setTermsModalBooking(res.booking)
+        setIsTermsModalOpen(true)
+      }
     } catch (err: unknown) {
       setActionError(err instanceof Error ? err.message : 'Failed to perform action.')
     } finally {
@@ -489,26 +511,54 @@ export function IncomingRequestsModal({
                     </div>
                   )}
 
-                  {/* Stage 7 QR Handover Action Banners */}
+                  {/* Stage 7 QR Handover Action Banners & Lifecycle Statuses */}
                   {b.status === 'accepted' && (
-                    <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <span className="text-xs font-bold text-emerald-950 block">
-                          Ready for Handover
-                        </span>
-                        <p className="text-[11px] text-emerald-800">
-                          Present your pickup QR code to {b.borrower.full_name || b.borrower.username} when handing over the item.
-                        </p>
+                    b.snapshot_listing_type !== 'sell' && b.terms_status !== 'agreed' ? (
+                      <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <span className="text-xs font-bold text-amber-950 block">
+                            Rental Terms Agreement Pending
+                          </span>
+                          <p className="text-[11px] text-amber-800">
+                            {b.terms_status === 'adjustment_proposed'
+                              ? "You proposed revised terms. Awaiting borrower's confirmation."
+                              : b.terms_status === 'rejected'
+                              ? 'Borrower requested changes to proposed terms.'
+                              : 'Review or adjust rental amounts before the first QR scan.'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTermsModalBooking(b)
+                            setIsTermsModalOpen(true)
+                          }}
+                          className="px-5 py-2 rounded-full text-xs font-bold text-white bg-amber-800 hover:bg-amber-900 shadow-sm transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
+                        >
+                          <FileCheck2 className="w-4 h-4" />
+                          <span>Review / Adjust Terms</span>
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPresentQR(b, 'pickup')}
-                        className="px-5 py-2 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-sm transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
-                      >
-                        <QrCode className="w-4 h-4" />
-                        <span>Show Pickup QR</span>
-                      </button>
-                    </div>
+                    ) : (
+                      <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <span className="text-xs font-bold text-emerald-950 block">
+                            Terms Agreed • Ready for Handover
+                          </span>
+                          <p className="text-[11px] text-emerald-800">
+                            Present your pickup QR code to {b.borrower.full_name || b.borrower.username} when handing over the item.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPresentQR(b, 'pickup')}
+                          className="px-5 py-2 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-sm transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
+                        >
+                          <QrCode className="w-4 h-4" />
+                          <span>Show Pickup QR</span>
+                        </button>
+                      </div>
+                    )
                   )}
 
                   {b.status === 'active' && b.snapshot_listing_type !== 'sell' && (
@@ -521,14 +571,27 @@ export function IncomingRequestsModal({
                           When borrower returns your item, scan their return QR code to confirm safe return.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenScan(b, 'return')}
-                        className="px-5 py-2 rounded-full text-xs font-bold text-white bg-indigo-800 hover:bg-indigo-900 shadow-sm transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
-                      >
-                        <Camera className="w-4 h-4" />
-                        <span>Scan Return QR</span>
-                      </button>
+                      <div className="flex items-center space-x-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAdvanceModalBooking(b)
+                            setIsAdvanceModalOpen(true)
+                          }}
+                          className="px-3.5 py-2 rounded-full text-xs font-bold text-indigo-900 bg-white hover:bg-indigo-50 border border-indigo-200 shadow-2xs transition-all flex items-center space-x-1 shrink-0 cursor-pointer"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          <span>Advance Status</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenScan(b, 'return')}
+                          className="px-5 py-2 rounded-full text-xs font-bold text-white bg-indigo-800 hover:bg-indigo-900 shadow-sm transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
+                        >
+                          <Camera className="w-4 h-4" />
+                          <span>Scan Return QR</span>
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -539,16 +602,53 @@ export function IncomingRequestsModal({
                           Item Returned Successfully
                         </span>
                         <p className="text-[11px] text-teal-800">
-                          Borrower has returned the gear. Complete the transaction to close this rental.
+                          Borrower has returned the gear. Complete the settlement and verify all payment obligations.
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFinancialModalBookingId(b.id)
+                            setIsFinancialModalOpen(true)
+                          }}
+                          className="px-4 py-2 rounded-full text-xs font-bold text-teal-900 bg-white hover:bg-teal-50 border border-teal-200 shadow-2xs transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          <span>Final Settlement Bill</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAction(b, 'complete')}
+                          className="px-5 py-2 rounded-full text-xs font-bold text-white bg-teal-800 hover:bg-teal-900 shadow-sm transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
+                        >
+                          <Check className="w-4 h-4" />
+                          <span>Mark Completed</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {b.status === 'completed' && b.relist_prompted && (
+                    <div className="p-3.5 rounded-2xl bg-emerald-50/90 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <span className="text-xs font-bold text-emerald-950 block">
+                          Order Closed — Re-list Product?
+                        </span>
+                        <p className="text-[11px] text-emerald-800">
+                          Would you like to list this product in the marketplace again?
                         </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleOpenAction(b, 'complete')}
-                        className="px-5 py-2 rounded-full text-xs font-bold text-white bg-teal-800 hover:bg-teal-900 shadow-sm transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
+                        onClick={() => {
+                          setRelistBooking(b)
+                          setIsRelistOpen(true)
+                        }}
+                        className="px-5 py-2 rounded-full text-xs font-bold text-white bg-emerald-800 hover:bg-emerald-900 shadow-sm transition-all flex items-center space-x-1.5 shrink-0 cursor-pointer"
                       >
-                        <Check className="w-4 h-4" />
-                        <span>Mark Completed</span>
+                        <RotateCcw className="w-4 h-4" />
+                        <span>Re-list Options</span>
                       </button>
                     </div>
                   )}
@@ -724,8 +824,12 @@ export function IncomingRequestsModal({
           setIsQrModalOpen(false)
           setQrModalBooking(null)
         }}
-        onHandoverCompleted={() => {
+        onHandoverCompleted={(updated) => {
           loadIncoming()
+          if (qrActionType === 'pickup' && updated && updated.snapshot_listing_type !== 'sell') {
+            setAdvanceModalBooking(updated)
+            setIsAdvanceModalOpen(true)
+          }
         }}
       />
 
@@ -737,8 +841,12 @@ export function IncomingRequestsModal({
           setIsScanModalOpen(false)
           setScanModalBooking(null)
         }}
-        onSuccess={() => {
+        onSuccess={(updated) => {
           loadIncoming()
+          if (scanActionType === 'return' && updated) {
+            setFinancialModalBookingId(updated.id)
+            setIsFinancialModalOpen(true)
+          }
         }}
       />
 
@@ -751,6 +859,53 @@ export function IncomingRequestsModal({
             setFinancialModalBookingId(null)
           }}
           onUpdated={() => {
+            loadIncoming()
+          }}
+        />
+      )}
+
+      {/* Enhancement 1: Terms Agreement Review Modal */}
+      {termsModalBooking && (
+        <TermsAgreementModal
+          booking={termsModalBooking}
+          isLender={true}
+          isOpen={isTermsModalOpen}
+          onClose={() => {
+            setIsTermsModalOpen(false)
+            setTermsModalBooking(null)
+          }}
+          onTermsUpdated={() => {
+            loadIncoming()
+          }}
+        />
+      )}
+
+      {/* Enhancement 2: Advance Payment Confirmation Modal */}
+      {advanceModalBooking && (
+        <AdvancePaymentModal
+          booking={advanceModalBooking}
+          isLender={true}
+          isOpen={isAdvanceModalOpen}
+          onClose={() => {
+            setIsAdvanceModalOpen(false)
+            setAdvanceModalBooking(null)
+          }}
+          onSuccess={() => {
+            loadIncoming()
+          }}
+        />
+      )}
+
+      {/* Enhancement 5: Re-listing Choice Modal */}
+      {relistBooking && (
+        <RelistChoiceModal
+          booking={relistBooking}
+          isOpen={isRelistOpen}
+          onClose={() => {
+            setIsRelistOpen(false)
+            setRelistBooking(null)
+          }}
+          onRelisted={() => {
             loadIncoming()
           }}
         />
