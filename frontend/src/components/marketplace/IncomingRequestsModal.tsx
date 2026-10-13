@@ -403,17 +403,25 @@ export function IncomingRequestsModal({
                         </div>
                       )}
                       <div className="min-w-0">
-                        <div className="flex items-center space-x-1.5">
+                        <div className="flex items-center space-x-1.5 flex-wrap">
                           <span className="text-xs font-bold text-stone-900 truncate">
                             {b.borrower.full_name || b.borrower.username}
                           </span>
-                          {b.borrower.is_verified && (
-                            <span title="Verified Campus Student" className="inline-flex">
-                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                          {b.borrower.is_verified || b.borrower.is_college_verified ? (
+                            <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              <ShieldCheck className="w-3 h-3 mr-0.5 text-emerald-700" />
+                              Verified
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                              Unverified
                             </span>
                           )}
+                          <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-900 border border-emerald-200">
+                            🛡️ {b.borrower.trust_score ?? 75} Trust
+                          </span>
                         </div>
-                        <p className="text-[11px] text-stone-500 truncate">
+                        <p className="text-[11px] text-stone-500 truncate mt-0.5">
                           {b.borrower.college_name}
                           {b.borrower.major ? ` • ${b.borrower.major}` : ''}
                           {b.borrower.grad_year ? ` • Class of ${b.borrower.grad_year}` : ''}

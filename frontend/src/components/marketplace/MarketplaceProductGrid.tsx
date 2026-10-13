@@ -354,9 +354,20 @@ export function MarketplaceProductGrid({
                         </div>
                       )}
                       <div className="min-w-0">
-                        <span className="text-[11px] font-bold text-stone-800 truncate block">
-                          {item.lender.full_name || item.lender.username}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[11px] font-bold text-stone-800 truncate block">
+                            {item.lender.full_name || item.lender.username}
+                          </span>
+                          {item.lender.is_college_verified ? (
+                            <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                              Verified
+                            </span>
+                          ) : (
+                            <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                              Unverified
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-stone-400 truncate block">
                           {item.college?.short_code || item.lender.college_short_code || 'Campus'}
                           {item.lender.grad_year ? ` • ${item.lender.grad_year} Batch` : ''}
@@ -364,16 +375,14 @@ export function MarketplaceProductGrid({
                       </div>
                     </div>
 
-                    {/* Lender Trust Score Pill */}
-                    {item.lender.trust_score !== undefined && (
-                      <div
-                        className="flex items-center space-x-1 px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-900 border border-emerald-200/80 text-[10px] font-semibold shrink-0"
-                        title={`Lender Trust Score: ${item.lender.trust_score}/100`}
-                      >
-                        <Shield className="w-2.5 h-2.5 text-emerald-700" />
-                        <span>{item.lender.trust_score}</span>
-                      </div>
-                    )}
+                    {/* Lender Trust Score Pill - Visible on Every User */}
+                    <div
+                      className="flex items-center space-x-1 px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-900 border border-emerald-200/80 text-[10px] font-bold shrink-0 shadow-2xs"
+                      title={`Lender Trust Score: ${item.lender.trust_score ?? 75}/100`}
+                    >
+                      <Shield className="w-2.5 h-2.5 text-emerald-700" />
+                      <span>{item.lender.trust_score ?? 75}</span>
+                    </div>
                   </div>
                 </div>
               </div>

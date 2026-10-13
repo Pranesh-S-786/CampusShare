@@ -48,19 +48,19 @@ def calculate_and_update_trust_score(profile: StudentProfile) -> Dict[str, Any]:
     completed_as_lender_count = lender_completed.count()
     total_completed = completed_as_borrower_count + completed_as_lender_count
 
-    # Initial state: New user with insufficient history
+    # Initial state: New user with baseline trust score
     if total_completed == 0:
-        profile.trust_score = None
-        profile.trust_status = 'insufficient_history'
+        profile.trust_score = BASE_TRUST_SCORE
+        profile.trust_status = 'new_member'
         profile.completed_rentals_count = 0
         profile.save(update_fields=['trust_score', 'trust_status', 'completed_rentals_count', 'updated_at'])
 
         return {
             'profile_id': profile.id,
-            'trust_score': None,
-            'trust_status': 'insufficient_history',
-            'status_label': 'New user — insufficient history',
-            'confidence': 'None',
+            'trust_score': BASE_TRUST_SCORE,
+            'trust_status': 'new_member',
+            'status_label': 'New Member — Baseline Community Trust (75/100)',
+            'confidence': 'Baseline',
             'completed_rentals_count': 0,
             'on_time_returns_count': 0,
             'early_returns_count': 0,
@@ -70,8 +70,8 @@ def calculate_and_update_trust_score(profile: StudentProfile) -> Dict[str, Any]:
             'lender_rating_average': None,
             'lender_review_count': 0,
             'explanation': (
-                "New user with no completed rentals yet. Trust score will automatically "
-                "activate once your first rental handover and return are verified."
+                "New community member starting with a 75/100 baseline trust score. "
+                "Complete verified on-time rentals and earn positive reviews to increase your trust score up to 100!"
             ),
             'scoring_rules': {
                 'base_score': BASE_TRUST_SCORE,

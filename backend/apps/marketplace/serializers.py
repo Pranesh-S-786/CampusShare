@@ -30,6 +30,8 @@ class LenderSummarySerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     college_name = serializers.CharField(source='display_college', read_only=True)
     college_short_code = serializers.SerializerMethodField()
+    trust_score = serializers.SerializerMethodField()
+    is_verified = serializers.BooleanField(source='is_college_verified', read_only=True)
 
     class Meta:
         model = StudentProfile
@@ -44,6 +46,7 @@ class LenderSummarySerializer(serializers.ModelSerializer):
             'grad_year',
             'major',
             'is_college_verified',
+            'is_verified',
             'verification_status',
             'trust_score',
             'trust_status',
@@ -54,6 +57,9 @@ class LenderSummarySerializer(serializers.ModelSerializer):
 
     def get_college_short_code(self, obj):
         return obj.college.short_code if obj.college else ''
+
+    def get_trust_score(self, obj):
+        return obj.trust_score if obj.trust_score is not None else 75
 
 
 class ListingCollegeSummarySerializer(serializers.ModelSerializer):

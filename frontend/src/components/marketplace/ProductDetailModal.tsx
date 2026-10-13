@@ -13,6 +13,7 @@ import {
   Star,
   Clock,
   Shield,
+  AlertCircle,
   Loader2,
 } from 'lucide-react'
 import {
@@ -319,13 +320,19 @@ export function ProductDetailModal({
               )}
 
               <div>
-                <div className="flex items-center space-x-1.5">
+                <div className="flex items-center space-x-1.5 flex-wrap">
                   <span className="text-xs font-bold text-stone-900">
                     {listing.lender.full_name || listing.lender.username}
                   </span>
-                  {listing.lender.is_college_verified && (
-                    <span title="Verified Campus Student" className="inline-flex">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                  {listing.lender.is_college_verified ? (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      <ShieldCheck className="w-3 h-3 mr-0.5 text-emerald-700" />
+                      Verified Student
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                      <AlertCircle className="w-3 h-3 mr-0.5 text-amber-600" />
+                      Unverified
                     </span>
                   )}
                 </div>
@@ -337,17 +344,15 @@ export function ProductDetailModal({
             </div>
 
             <div className="flex items-center space-x-2">
-              {listing.lender.trust_score !== undefined && (
-                <button
-                  type="button"
-                  onClick={() => setIsTrustScoreModalOpen(true)}
-                  className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-950 text-xs font-bold flex items-center space-x-1 cursor-pointer transition-colors"
-                  title="View explainable Trust Score and contributing factors"
-                >
-                  <Shield className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Trust Score: {listing.lender.trust_score}</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setIsTrustScoreModalOpen(true)}
+                className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-950 text-xs font-bold flex items-center space-x-1 cursor-pointer transition-colors shadow-2xs"
+                title="View explainable Trust Score and contributing factors"
+              >
+                <Shield className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Trust Score: {listing.lender.trust_score ?? 75}/100</span>
+              </button>
               <span className="text-[11px] text-emerald-800 font-semibold">
                 {isOwner ? 'Your Listing' : 'Peer Lender'}
               </span>

@@ -22,6 +22,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     display_college = serializers.CharField(read_only=True)
     default_avatar_url = serializers.CharField(read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
+    trust_score = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentProfile
@@ -38,6 +39,11 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'is_email_verified',
             'is_college_verified',
             'verification_status',
+            'trust_score',
+            'trust_status',
+            'completed_rentals_count',
+            'lender_average_rating',
+            'lender_review_count',
             'grad_year',
             'major',
             'student_id_number',
@@ -55,6 +61,9 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
+    def get_trust_score(self, obj):
+        return obj.trust_score if obj.trust_score is not None else 75
+
 
 class UserRegistrationSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=255, required=True)
@@ -66,8 +75,13 @@ class UserRegistrationSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         norm_email = value.strip().lower()
-        if User.objects.filter(email__iexact=norm_email).exists() or \
-           StudentProfile.objects.filter(college_email__iexact=norm_email).exists():
+        # Allow re-registration if the existing account was never verified with OTP
+        user = User.objects.filter(email__iexact=norm_email).first()
+        if user:
+            profile = getattr(user, 'profile', None)
+            if profile and profile.is_email_verified:
+                raise serializers.ValidationError("An account with this email address already exists.")
+        elif StudentProfile.objects.filter(college_email__iexact=norm_email, is_email_verified=True).exists():
             raise serializers.ValidationError("An account with this email address already exists.")
         return norm_email
 

@@ -333,3 +333,82 @@ class AuthenticationIntegrationTests(TestCase):
             'password': 'BrandNewPassword@2026',
         }, format='json')
         self.assertEqual(new_login.status_code, 200)
+
+    def test_unverified_email_can_re_register_without_error(self):
+        """
+        If a user previously entered an email but did NOT complete OTP verification,
+        re-registering with that same email must succeed, update credentials,
+        and issue a fresh OTP code instead of failing with 'account already exists'.
+        """
+        payload_1 = {
+            'full_name': 'Pending Student',
+            'email': 'pending.unverified@gmail.com',
+            'college_id': None,
+            'password': 'FirstPassword@123',
+            'confirm_password': 'FirstPassword@123',
+        }
+        res_1 = self.client.post('/api/auth/register/', payload_1, format='json')
+        self.assertEqual(res_1.status_code, 201)
+        self.assertEqual(res_1.data['is_email_verified'], False)
+
+        # Attempt to register AGAIN with the same email before OTP verification
+        payload_2 = {
+            'full_name': 'Pending Student Updated',
+            'email': 'pending.unverified@gmail.com',
+            'college_id': None,
+            'password': 'SecondPassword@456',
+            'confirm_password': 'SecondPassword@456',
+        }
+        res_2 = self.client.post('/api/auth/register/', payload_2, format='json')
+        self.assertEqual(res_2.status_code, 201, "Unverified user should be allowed to re-register")
+        self.assertEqual(res_2.data['full_name'], 'Pending Student Updated')
+
+        # Verify a new OTP code exists
+        user = User.objects.get(email='pending.unverified@gmail.com')
+        self.assertEqual(user.profile.full_name, 'Pending Student Updated')
+        latest_code = EmailVerificationCode.objects.filter(user=user, is_used=False).latest('created_at')
+
+        # Verify with the fresh OTP code
+        verify_res = self.client.post('/api/auth/verify-email/', {
+            'email': 'pending.unverified@gmail.com',
+            'code': latest_code.code,
+        }, format='json')
+        self.assertEqual(verify_res.status_code, 200)
+        self.assertEqual(verify_res.data['is_college_verified'], False)
+        self.assertEqual(verify_res.data['user']['trust_score'], 75)
+
+        # Verify login succeeds with the updated password
+        login_res = self.client.post('/api/auth/login/', {
+            'email': 'pending.unverified@gmail.com',
+            'password': 'SecondPassword@456',
+        }, format='json')
+        self.assertEqual(login_res.status_code, 200)
+
+    def test_gmail_registration_receives_unverified_college_status(self):
+        """
+        Normal gmail.com users verify their email via OTP, but because gmail.com is not
+        an official institutional domain, they remain unverified for college affiliation.
+        """
+        payload = {
+            'full_name': 'Normal Gmail User',
+            'email': 'normaluser@gmail.com',
+            'college_id': self.cit.id,  # Selected CIT but used a personal gmail address
+            'password': 'StrongPassword@999',
+            'confirm_password': 'StrongPassword@999',
+        }
+        reg_res = self.client.post('/api/auth/register/', payload, format='json')
+        self.assertEqual(reg_res.status_code, 201)
+
+        user = User.objects.get(email='normaluser@gmail.com')
+        otp = EmailVerificationCode.objects.filter(user=user, is_used=False).latest('created_at')
+
+        # Verify OTP
+        verify_res = self.client.post('/api/auth/verify-email/', {
+            'email': 'normaluser@gmail.com',
+            'code': otp.code,
+        }, format='json')
+        self.assertEqual(verify_res.status_code, 200)
+        self.assertTrue(verify_res.data['user']['is_email_verified'])
+        self.assertFalse(verify_res.data['user']['is_college_verified'])
+        self.assertEqual(verify_res.data['user']['trust_score'], 75)
+

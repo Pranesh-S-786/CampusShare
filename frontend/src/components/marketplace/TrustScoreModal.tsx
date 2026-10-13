@@ -117,7 +117,7 @@ export function TrustScoreModal({
                 <div className="inline-flex items-center justify-center space-x-2">
                   <Shield className="w-6 h-6 text-emerald-800" />
                   <span className="text-3xl sm:text-4xl font-black">
-                    {data.trust_score !== null ? `${data.trust_score} / 100` : 'New User'}
+                    {data.trust_score !== null ? `${data.trust_score} / 100` : '75 / 100'}
                   </span>
                 </div>
                 <h4 className="font-bold text-sm text-stone-900">

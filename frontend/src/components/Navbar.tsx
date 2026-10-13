@@ -7,7 +7,6 @@ import {
   User as UserIcon,
   LogOut,
   ChevronDown,
-  GraduationCap,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -132,25 +131,19 @@ export function Navbar({ onOpenMarketplace, onOpenAuth, onScrollToSection }: Nav
                 )}
 
                 <div className="text-left">
-                  <div className="text-xs font-bold text-stone-800 leading-tight max-w-[120px] truncate">
-                    {user.full_name || user.username}
+                  <div className="text-xs font-bold text-stone-800 leading-tight max-w-[120px] truncate flex items-center gap-1">
+                    <span>{user.full_name || user.username}</span>
                   </div>
-                  <div className="text-[10px] text-emerald-800 font-medium flex items-center">
+                  <div className="text-[10px] font-medium flex items-center">
                     {user.is_college_verified ? (
                       <>
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 mr-1" />
-                        <span className="truncate max-w-[100px]">{user.display_college || 'Verified'}</span>
-                      </>
-                    ) : user.is_email_verified ? (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1" />
-                        <span>Email Verified</span>
+                        <span className="truncate max-w-[90px] text-emerald-800">{user.display_college || 'Verified'}</span>
                       </>
                     ) : (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1" />
-                        <span>Unverified</span>
-                      </>
+                      <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                        Unverified
+                      </span>
                     )}
                   </div>
                 </div>
@@ -166,12 +159,20 @@ export function Navbar({ onOpenMarketplace, onOpenAuth, onScrollToSection }: Nav
                       {user.full_name || user.username}
                     </p>
                     <p className="text-[11px] text-stone-500 truncate">{user.college_email}</p>
-                    {user.display_college && (
-                      <p className="text-[10px] font-medium text-emerald-800 flex items-center mt-1">
-                        <GraduationCap className="w-3 h-3 mr-1 shrink-0" />
-                        <span className="truncate">{user.display_college}</span>
-                      </p>
-                    )}
+                    <div className="mt-1 flex items-center gap-1.5">
+                      {user.is_college_verified ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center">
+                          🎓 Verified Student
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center">
+                          ⚠️ Unverified
+                        </span>
+                      )}
+                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-700 border border-stone-200">
+                        🛡️ {user.trust_score ?? 75} Trust
+                      </span>
+                    </div>
                   </div>
 
                   <button
@@ -266,8 +267,19 @@ export function Navbar({ onOpenMarketplace, onOpenAuth, onScrollToSection }: Nav
                   {user.full_name || user.username}
                 </div>
                 <div className="text-[11px] text-stone-500 truncate">{user.college_email}</div>
-                <div className="text-[10px] text-emerald-800 font-medium mt-0.5">
-                  {user.is_college_verified ? `🎓 ${user.display_college || 'Verified'}` : '✉️ Email Verified'}
+                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                  {user.is_college_verified ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center">
+                      🎓 {user.display_college || 'Verified Student'}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center">
+                      ⚠️ Unverified
+                    </span>
+                  )}
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-700 border border-stone-200">
+                    🛡️ {user.trust_score ?? 75} Trust
+                  </span>
                 </div>
               </div>
             </div>

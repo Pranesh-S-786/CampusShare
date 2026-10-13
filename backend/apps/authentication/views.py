@@ -60,27 +60,48 @@ class RegisterView(APIView):
         custom_college_name = data.get('custom_college_name', '').strip()
 
         with transaction.atomic():
-            # Use email as unique username
-            user = User.objects.create_user(
-                username=email,
-                email=email,
-                password=data['password'],
-                first_name=full_name.split()[0] if full_name else '',
-                last_name=' '.join(full_name.split()[1:]) if len(full_name.split()) > 1 else '',
-            )
+            # Check if an unverified user already exists for this email
+            user = User.objects.filter(email__iexact=email).first()
+            if user:
+                user.set_password(data['password'])
+                user.first_name = full_name.split()[0] if full_name else ''
+                user.last_name = ' '.join(full_name.split()[1:]) if len(full_name.split()) > 1 else ''
+                user.is_active = True
+                user.save()
 
-            profile = StudentProfile.objects.create(
-                user=user,
-                full_name=full_name,
-                college=college_obj,
-                custom_college_name=custom_college_name,
-                college_email=email,
-                is_email_verified=False,
-                is_college_verified=False,
-                verification_status='unverified',
-            )
+                profile, _ = StudentProfile.objects.get_or_create(user=user, defaults={'college_email': email})
+                profile.full_name = full_name
+                profile.college = college_obj
+                profile.custom_college_name = custom_college_name
+                profile.college_email = email
+                profile.is_email_verified = False
+                profile.is_college_verified = False
+                profile.verification_status = 'unverified'
+                profile.save()
+            else:
+                user = User.objects.create_user(
+                    username=email,
+                    email=email,
+                    password=data['password'],
+                    first_name=full_name.split()[0] if full_name else '',
+                    last_name=' '.join(full_name.split()[1:]) if len(full_name.split()) > 1 else '',
+                )
 
-            # Generate OTP verification code
+                profile = StudentProfile.objects.create(
+                    user=user,
+                    full_name=full_name,
+                    college=college_obj,
+                    custom_college_name=custom_college_name,
+                    college_email=email,
+                    is_email_verified=False,
+                    is_college_verified=False,
+                    verification_status='unverified',
+                )
+
+            # Invalidate any previous unused verification codes for this email
+            EmailVerificationCode.objects.filter(email__iexact=email, is_used=False).update(is_used=True)
+
+            # Generate fresh OTP verification code
             verification = EmailVerificationCode.generate_for_user(user=user, email=email)
 
         # Dispatch email verification OTP
@@ -91,7 +112,7 @@ class RegisterView(APIView):
         )
 
         return Response({
-            'message': 'Account created successfully. Please verify your college email address.',
+            'message': 'Account created successfully. Please verify your email address with the 6-digit code.',
             'user_id': user.id,
             'email': email,
             'full_name': full_name,

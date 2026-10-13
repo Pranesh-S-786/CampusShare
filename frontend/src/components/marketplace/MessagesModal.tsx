@@ -329,8 +329,12 @@ export const MessagesModal: React.FC<MessagesModalProps> = ({
                         <div className="flex items-center justify-between mb-0.5">
                           <h4 className="text-xs font-bold text-[#1B3B2B] truncate flex items-center gap-1">
                             <span>{other?.full_name || other?.username}</span>
-                            {other?.is_college_verified && (
+                            {other?.is_college_verified ? (
                               <BadgeCheck className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
+                            ) : (
+                              <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                Unverified
+                              </span>
                             )}
                           </h4>
                           <span className="text-[10px] text-[#1B3B2B]/40 whitespace-nowrap ml-2">
@@ -404,10 +408,22 @@ export const MessagesModal: React.FC<MessagesModalProps> = ({
                     </div>
 
                     <div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <h3 className="text-sm font-bold text-[#1B3B2B]">
                           {selectedConv.other_participant?.full_name || selectedConv.other_participant?.username}
                         </h3>
+                        {selectedConv.other_participant?.is_college_verified ? (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            Verified
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                            Unverified
+                          </span>
+                        )}
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-900 border border-emerald-200">
+                          🛡️ {selectedConv.other_participant?.trust_score ?? 75} Trust
+                        </span>
                         {selectedConv.other_participant?.college_short_code && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-900/10 text-emerald-900">
                             {selectedConv.other_participant.college_short_code}

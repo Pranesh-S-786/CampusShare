@@ -142,14 +142,17 @@ export function AuthModal() {
     setIsSubmitting(true)
 
     try {
-      const isOther = regCollegeId === 'other'
+      const isOther = regCollegeId === 'other' || regCollegeId === 'personal'
       const collegeIdNum = isOther ? null : Number(regCollegeId)
+      const customCollege = isOther
+        ? (regCustomCollege.trim() || (regCollegeId === 'personal' ? 'Personal Account / Community' : 'Other College'))
+        : undefined
 
       const response = await registerStudent({
         full_name: regFullName,
         email: regEmail,
         college_id: collegeIdNum,
-        custom_college_name: isOther ? regCustomCollege : undefined,
+        custom_college_name: customCollege,
         password: regPassword,
         confirm_password: regConfirmPassword,
       })
@@ -579,13 +582,20 @@ export function AuthModal() {
                         {col.name} ({col.domain})
                       </option>
                     ))}
+                    <option value="personal">Personal Email / Gmail / General User (Unverified Badge)</option>
                     <option value="other">Other / Unsupported College</option>
                   </select>
                 </div>
-                {regCollegeId !== 'other' && colleges.length > 0 && (
+                {regCollegeId !== 'other' && regCollegeId !== 'personal' && colleges.length > 0 && (
                   <p className="mt-1 text-[11px] text-stone-500 flex items-center">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 mr-1" />
                     Emails matching this college's domain unlock verified status upon email verification.
+                  </p>
+                )}
+                {regCollegeId === 'personal' && (
+                  <p className="mt-1 text-[11px] text-amber-700 flex items-center">
+                    <Info className="w-3.5 h-3.5 text-amber-600 mr-1" />
+                    Personal email / Gmail users will receive an OTP code and join with an Unverified badge.
                   </p>
                 )}
               </div>
@@ -617,10 +627,10 @@ export function AuthModal() {
                 </div>
               )}
 
-              {/* College Email Address */}
+              {/* College or Personal Email Address */}
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1" htmlFor="reg-email">
-                  College Email Address
+                  Email Address (College or Personal Gmail)
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-3.5" />
@@ -630,10 +640,13 @@ export function AuthModal() {
                     required
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
-                    placeholder="yourname@cit.edu.in"
+                    placeholder="yourname@gmail.com or student@cit.edu.in"
                     className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-stone-200 focus:border-[#1B3B2B] focus:ring-2 focus:ring-[#1B3B2B]/10 text-sm text-stone-900 outline-none transition-all placeholder:text-stone-400"
                   />
                 </div>
+                <p className="mt-1 text-[11px] text-stone-500">
+                  Normal Gmail users are fully supported and will receive an email OTP. Accounts with personal emails display an Unverified badge.
+                </p>
               </div>
 
               {/* Password & Confirm Password */}
@@ -1038,26 +1051,24 @@ export function AuthModal() {
                         <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-700" />
                         Verified Student
                       </span>
-                    ) : user.is_email_verified ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-300">
-                        <Mail className="w-3 h-3 mr-1" />
-                        Email Verified
-                      </span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => openAuthModal('verify-email', user.college_email)}
-                        className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 cursor-pointer"
-                      >
-                        <AlertCircle className="w-3 h-3 mr-1" />
-                        Verify Email Now
-                      </button>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                        <AlertCircle className="w-3 h-3 mr-1 text-amber-600" />
+                        Unverified
+                      </span>
                     )}
                   </div>
                   <p className="text-xs text-stone-600 truncate">{user.college_email}</p>
                   <p className="text-[11px] text-stone-500 font-medium truncate mt-0.5">
                     {user.display_college}
                   </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs font-bold shadow-2xs">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Trust Score: {user.trust_score ?? 75}/100</span>
+                      <span className="text-[10px] text-emerald-700 font-normal">({user.trust_status || 'New Member'})</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 

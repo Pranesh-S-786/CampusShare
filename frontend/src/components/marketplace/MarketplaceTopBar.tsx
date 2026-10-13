@@ -8,7 +8,6 @@ import {
   Building,
   User as UserIcon,
   LogOut,
-  GraduationCap,
   Menu,
 } from 'lucide-react'
 import { type College } from '../../services/api'
@@ -262,6 +261,15 @@ export function MarketplaceTopBar({
                 <span className="hidden md:inline-block text-xs font-bold text-stone-800 max-w-[100px] truncate">
                   {user.full_name || user.username}
                 </span>
+                {user.is_college_verified ? (
+                  <span className="hidden sm:inline-flex px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    Verified
+                  </span>
+                ) : (
+                  <span className="hidden sm:inline-flex px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                    Unverified
+                  </span>
+                )}
                 <ChevronDown className={`w-3.5 h-3.5 text-stone-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
               </button>
 
@@ -272,12 +280,20 @@ export function MarketplaceTopBar({
                       {user.full_name || user.username}
                     </p>
                     <p className="text-[11px] text-stone-500 truncate">{user.college_email}</p>
-                    {user.display_college && (
-                      <p className="text-[10px] font-medium text-emerald-800 flex items-center mt-1">
-                        <GraduationCap className="w-3 h-3 mr-1 shrink-0" />
-                        <span className="truncate">{user.display_college}</span>
-                      </p>
-                    )}
+                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                      {user.is_college_verified ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center">
+                          🎓 Verified Student
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center">
+                          ⚠️ Unverified
+                        </span>
+                      )}
+                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-700 border border-stone-200">
+                        🛡️ {user.trust_score ?? 75} Trust
+                      </span>
+                    </div>
                   </div>
 
                   <button

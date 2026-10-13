@@ -3,6 +3,7 @@ import {
   FileText,
   ChevronRight,
   ShieldCheck,
+  AlertCircle,
   Calendar,
   Tag,
 } from 'lucide-react'
@@ -72,21 +73,21 @@ export function MarketplaceRightSidebar({
               )}
             </p>
             {user && (
-              <div className="mt-1">
+              <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                 {user.is_college_verified ? (
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60">
                     <ShieldCheck className="w-3 h-3 mr-1 text-emerald-700" />
                     Verified
                   </span>
-                ) : user.is_email_verified ? (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-800 border border-blue-200/60">
-                    Email Verified
-                  </span>
                 ) : (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/60">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                    <AlertCircle className="w-3 h-3 mr-1 text-amber-600" />
                     Unverified
                   </span>
                 )}
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-700 border border-stone-200">
+                  🛡️ {user.trust_score ?? 75}
+                </span>
               </div>
             )}
           </div>

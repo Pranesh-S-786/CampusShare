@@ -539,6 +539,9 @@ export interface BookingUserSummary {
   college_name: string
   avatar_url?: string | null
   is_verified: boolean
+  is_college_verified?: boolean
+  trust_score?: number | null
+  trust_status?: string
   grad_year?: number | null
   major?: string
   college_email?: string
