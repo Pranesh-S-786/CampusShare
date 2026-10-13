@@ -38,6 +38,18 @@ from .views import (
     ConversationListView,
     ConversationDetailView,
     ConversationMessagesView,
+    # Complete Lifecycle & Trust Enhancements
+    BookingProposeAdvanceView,
+    BookingRespondAdvanceView,
+    BookingProposeRentAdjustmentView,
+    BookingRespondRentAdjustmentView,
+    BookingLateFeeEstimateView,
+    BookingAgreeSettlementView,
+    BookingRelistChoiceView,
+    BookingSubmitReviewView,
+    ListingReviewsListView,
+    ProfileReviewsListView,
+    ProfileTrustScoreView,
 )
 
 urlpatterns = [
@@ -73,6 +85,24 @@ urlpatterns = [
     path('bookings/<int:pk>/refund/confirm/', DepositRefundConfirmView.as_view(), name='refund-confirm'),
     path('bookings/<int:pk>/settlement-bill/', BookingSettlementBillView.as_view(), name='booking-settlement-bill'),
     path('upload-payment-evidence/', PaymentEvidenceUploadView.as_view(), name='upload-payment-evidence'),
+
+    # Complete Lifecycle & Trust Enhancements
+    path('bookings/<int:pk>/propose-advance/', BookingProposeAdvanceView.as_view(), name='booking-propose-advance'),
+    path('bookings/<int:pk>/advance/propose/', BookingProposeAdvanceView.as_view(), name='booking-advance-propose'),
+    path('bookings/<int:pk>/respond-advance/', BookingRespondAdvanceView.as_view(), name='booking-respond-advance'),
+    path('bookings/<int:pk>/advance/respond/', BookingRespondAdvanceView.as_view(), name='booking-advance-respond'),
+    path('bookings/<int:pk>/propose-rent-adjustment/', BookingProposeRentAdjustmentView.as_view(), name='booking-propose-rent-adjustment'),
+    path('bookings/<int:pk>/rent-adjustment/propose/', BookingProposeRentAdjustmentView.as_view(), name='booking-rent-adjustment-propose'),
+    path('bookings/<int:pk>/respond-rent-adjustment/', BookingRespondRentAdjustmentView.as_view(), name='booking-respond-rent-adjustment'),
+    path('bookings/<int:pk>/rent-adjustment/respond/', BookingRespondRentAdjustmentView.as_view(), name='booking-rent-adjustment-respond'),
+    path('bookings/<int:pk>/late-fee-estimate/', BookingLateFeeEstimateView.as_view(), name='booking-late-fee-estimate'),
+    path('bookings/<int:pk>/agree-settlement/', BookingAgreeSettlementView.as_view(), name='booking-agree-settlement'),
+    path('bookings/<int:pk>/settlement/agree/', BookingAgreeSettlementView.as_view(), name='booking-settlement-agree'),
+    path('bookings/<int:pk>/relist-choice/', BookingRelistChoiceView.as_view(), name='booking-relist-choice'),
+    path('bookings/<int:pk>/reviews/', BookingSubmitReviewView.as_view(), name='booking-submit-review'),
+    path('listings/<int:pk>/reviews/', ListingReviewsListView.as_view(), name='listing-reviews-list'),
+    path('profiles/<int:pk>/reviews/', ProfileReviewsListView.as_view(), name='profile-reviews-list'),
+    path('profiles/<int:pk>/trust-score/', ProfileTrustScoreView.as_view(), name='profile-trust-score'),
 
     # Wanted Item Requests
     path('wanted-requests/', WantedItemRequestListView.as_view(), name='wanted-request-list'),

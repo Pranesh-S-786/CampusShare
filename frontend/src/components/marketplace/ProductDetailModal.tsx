@@ -10,9 +10,18 @@ import {
   DollarSign,
   Edit3,
   MessageSquare,
+  Star,
+  Clock,
+  Shield,
+  Loader2,
 } from 'lucide-react'
-import { type MarketplaceListing } from '../../services/api'
+import {
+  type MarketplaceListing,
+  type Review,
+  getListingReviews,
+} from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import { TrustScoreModal } from './TrustScoreModal'
 
 interface ProductDetailModalProps {
   listing: MarketplaceListing | null
@@ -37,6 +46,9 @@ export function ProductDetailModal({
 }: ProductDetailModalProps) {
   const { user, openAuthModal } = useAuth()
   const [activePhotoUrl, setActivePhotoUrl] = useState<string>('')
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false)
+  const [isTrustScoreModalOpen, setIsTrustScoreModalOpen] = useState(false)
 
   useEffect(() => {
     if (listing) {
@@ -45,6 +57,19 @@ export function ProductDetailModal({
       } else {
         setActivePhotoUrl(listing.image_url || '')
       }
+
+      // Fetch authentic borrower product reviews
+      setIsLoadingReviews(true)
+      getListingReviews(listing.id)
+        .then((res) => {
+          setReviews(res.reviews || [])
+        })
+        .catch(() => {
+          setReviews([])
+        })
+        .finally(() => {
+          setIsLoadingReviews(false)
+        })
     }
   }, [listing])
 
@@ -250,6 +275,31 @@ export function ProductDetailModal({
             </div>
           </div>
 
+          {/* Availability Status Banners */}
+          {listing.availability_status === 'return_overdue' && (
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-start space-x-2.5">
+              <Clock className="w-4 h-4 text-rose-700 shrink-0 mt-0.5 animate-pulse" />
+              <div>
+                <strong className="block font-bold">Return Overdue</strong>
+                <p className="mt-0.5 text-[11px] text-rose-800 leading-relaxed">
+                  This item has exceeded its agreed rental return timestamp. CampusShare has temporarily locked new bookings until physical return is verified by the lender.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {listing.availability_status === 'currently_booked' && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start space-x-2.5">
+              <Clock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+              <div>
+                <strong className="block font-bold">Currently Booked</strong>
+                <p className="mt-0.5 text-[11px] text-amber-800 leading-relaxed">
+                  This item is currently out on rental{listing.booked_until ? ` until ${new Date(listing.booked_until).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : ''}. You may select future rental windows when requesting.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Lender Profile Box */}
           <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -283,9 +333,78 @@ export function ProductDetailModal({
               </div>
             </div>
 
-            <div className="text-right text-[11px] text-emerald-800 font-semibold">
-              {isOwner ? 'Your Listing' : 'Peer Lender'}
+            <div className="flex items-center space-x-2">
+              {listing.lender.trust_score !== undefined && (
+                <button
+                  type="button"
+                  onClick={() => setIsTrustScoreModalOpen(true)}
+                  className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-950 text-xs font-bold flex items-center space-x-1 cursor-pointer transition-colors"
+                  title="View explainable Trust Score and contributing factors"
+                >
+                  <Shield className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Trust Score: {listing.lender.trust_score}</span>
+                </button>
+              )}
+              <span className="text-[11px] text-emerald-800 font-semibold">
+                {isOwner ? 'Your Listing' : 'Peer Lender'}
+              </span>
             </div>
+          </div>
+
+          {/* Authentic Product Reviews Section */}
+          <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-stone-800 font-mono">
+                  Borrower Reviews & Ratings
+                </h4>
+                {typeof listing.review_count === 'number' && listing.review_count > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 flex items-center space-x-1">
+                    <Star className="w-3 h-3 fill-amber-500 text-amber-600" />
+                    <span>{Number(listing.average_rating || 5).toFixed(1)} ({listing.review_count})</span>
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] text-stone-400 font-medium">
+                Post-return verified reviews only
+              </span>
+            </div>
+
+            {isLoadingReviews ? (
+              <div className="py-4 flex items-center justify-center space-y-2 text-stone-400">
+                <Loader2 className="w-4 h-4 animate-spin text-[#1B3B2B]" />
+              </div>
+            ) : reviews.length === 0 ? (
+              <p className="text-xs text-stone-500 italic">
+                No reviews yet. Reviews can only be submitted by verified borrowers after completing a rental.
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {reviews.map((r) => (
+                  <div key={r.id} className="p-3 rounded-xl bg-white border border-stone-200/80 text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-1.5 font-bold text-stone-900">
+                        <div className="flex">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`w-3 h-3 ${
+                                star <= r.rating ? 'fill-amber-400 text-amber-500' : 'text-stone-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span>{r.reviewer?.full_name || r.reviewer?.username || 'Verified Student'}</span>
+                      </div>
+                      <span className="text-[10px] text-stone-400">
+                        {new Date(r.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {r.comment && <p className="text-stone-600 text-[11px] leading-relaxed">{r.comment}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Stage Note Banner */}
@@ -334,27 +453,46 @@ export function ProductDetailModal({
                   <span>Message Owner</span>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  if (!user) {
-                    openAuthModal('login')
-                  } else if (onRequestBooking) {
-                    onRequestBooking(listing)
-                  }
-                }}
-                className="px-6 py-2.5 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-sm transition-all cursor-pointer"
-              >
-                {user
-                  ? listing.listing_type === 'sell'
-                    ? 'Request to Buy'
-                    : 'Request to Borrow / Rent'
-                  : 'Sign In to Borrow'}
-              </button>
+
+              {listing.availability_status === 'return_overdue' ? (
+                <button
+                  type="button"
+                  disabled
+                  className="px-6 py-2.5 rounded-full text-xs font-bold text-stone-400 bg-stone-200 cursor-not-allowed shadow-none"
+                >
+                  Unavailable — Return Overdue
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!user) {
+                      openAuthModal('login')
+                    } else if (onRequestBooking) {
+                      onRequestBooking(listing)
+                    }
+                  }}
+                  className="px-6 py-2.5 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-sm transition-all cursor-pointer"
+                >
+                  {user
+                    ? listing.listing_type === 'sell'
+                      ? 'Request to Buy'
+                      : 'Request to Borrow / Rent'
+                    : 'Sign In to Borrow'}
+                </button>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Lender Trust Score Modal */}
+      <TrustScoreModal
+        profileId={listing.lender.id}
+        userName={listing.lender.full_name || listing.lender.username}
+        isOpen={isTrustScoreModalOpen}
+        onClose={() => setIsTrustScoreModalOpen(false)}
+      />
     </div>
   )
 }

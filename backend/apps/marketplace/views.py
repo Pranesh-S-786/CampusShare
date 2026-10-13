@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from apps.authentication.models import StudentProfile, College
-from .models import Category, Listing, ListingImage
+from .models import Category, Listing, ListingImage, Booking, Review
 from .storage import ListingStorageService
 from .serializers import (
     CategorySerializer,
@@ -956,11 +956,29 @@ class BookingVerifyHandoverView(APIView):
                     actor_id=profile.id,
                     note='Rental item return confirmed via QR verification'
                 )
-                listing.status = 'active'
-                listing.is_available = True
+
+                # Dynamic rent and actual duration calculation (Section 3)
+                from .duration_rent_service import calculate_actual_rental_terms
+                duration_terms = calculate_actual_rental_terms(booking, custom_return_time=now)
+                booking.actual_rent_calculated = Decimal(duration_terms['final_calculated_rent'])
+                booking.actual_duration_display = duration_terms['actual_duration_display']
+
+                # Lender Re-listing Choice (Section 9): Keep listing unavailable until lender explicitly chooses
+                listing.status = 'unavailable'
+                listing.is_available = False
                 listing.save(update_fields=['status', 'is_available', 'updated_at'])
 
+                booking.relist_prompted = True
+                booking.settlement_status = 'settlement_proposed'
+
             booking.save()
+
+            # Dynamic trust score update after verified return
+            if action_type == 'return':
+                from .trust_score_service import calculate_and_update_trust_score
+                calculate_and_update_trust_score(booking.borrower)
+                calculate_and_update_trust_score(booking.lender)
+
             from .notification_service import notify_handover_verified
             notify_handover_verified(booking, action_type=action_type, verified_by=profile)
 
@@ -2276,10 +2294,630 @@ class ConversationMessagesView(APIView):
 
         notify_new_message(msg)
 
+        notify_new_message(msg)
+
         return Response(
             MessageSerializer(msg, context={'request': request}).data,
             status=status.HTTP_201_CREATED
         )
+
+
+# ========================================================
+# ADVANCE PAYMENT NEGOTIATION VIEWS (Section 2)
+# ========================================================
+
+class BookingProposeAdvanceView(APIView):
+    """
+    Allow borrower or lender to propose a revised advance amount before pickup.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        from .serializers import AdvanceProposalSerializer, BookingSerializer
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return Response({'error': 'Student profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            booking = Booking.objects.select_related('borrower', 'lender', 'listing').get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({'error': 'Booking not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.id not in [booking.borrower_id, booking.lender_id]:
+            return Response({'error': 'Unauthorized: Only booking participants can negotiate advance amount.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if booking.status not in ['pending', 'accepted']:
+            return Response({'error': f'Cannot negotiate advance: Booking is already {booking.status}.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = AdvanceProposalSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        proposed_amt = serializer.validated_data['proposed_amount']
+        reason = serializer.validated_data.get('reason', '').strip()
+
+        booking.agreed_advance_amount = proposed_amt
+        booking.advance_negotiation_status = 'proposed'
+        booking.advance_proposal_notes = f"Proposed by {profile.full_name}: ₹{proposed_amt}. Reason: {reason}"
+        booking.record_status_change(
+            booking.status,
+            actor_id=profile.id,
+            note=f"Proposed revised advance of ₹{proposed_amt}. {reason}"
+        )
+        booking.save()
+
+        # Notify counterparty
+        recipient = booking.lender if profile.id == booking.borrower_id else booking.borrower
+        from .models import Notification
+        Notification.objects.create(
+            recipient=recipient,
+            actor=profile,
+            notification_type='advance_proposed',
+            title='Advance Payment Revision Proposed',
+            message=f"{profile.full_name} proposed a revised advance of ₹{proposed_amt} for '{booking.listing.title}'.",
+            booking=booking,
+            target_modal='financials',
+            target_id=str(booking.id)
+        )
+
+        return Response({
+            'message': f"Revised advance proposal of ₹{proposed_amt} submitted successfully.",
+            'booking': BookingSerializer(booking).data,
+        })
+
+
+class BookingRespondAdvanceView(APIView):
+    """
+    Accept or reject a proposed advance revision.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        from .serializers import AdvanceRespondSerializer, BookingSerializer
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return Response({'error': 'Student profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            booking = Booking.objects.select_related('borrower', 'lender', 'listing').get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({'error': 'Booking not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.id not in [booking.borrower_id, booking.lender_id]:
+            return Response({'error': 'Unauthorized: Only booking participants can respond.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if booking.advance_negotiation_status != 'proposed':
+            return Response({'error': 'No pending advance proposal to respond to.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = AdvanceRespondSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        action = serializer.validated_data['action']
+        response_note = serializer.validated_data.get('response_note', '').strip()
+
+        recipient = booking.lender if profile.id == booking.borrower_id else booking.borrower
+        from .models import Notification
+
+        if action == 'accept':
+            booking.advance_negotiation_status = 'agreed'
+            booking.record_status_change(
+                booking.status,
+                actor_id=profile.id,
+                note=f"Accepted revised advance amount of ₹{booking.agreed_advance_amount}. {response_note}"
+            )
+            booking.save()
+
+            Notification.objects.create(
+                recipient=recipient,
+                actor=profile,
+                notification_type='advance_confirmed',
+                title='Advance Revision Accepted',
+                message=f"{profile.full_name} accepted the revised advance of ₹{booking.agreed_advance_amount} for '{booking.listing.title}'.",
+                booking=booking,
+                target_modal='financials',
+                target_id=str(booking.id)
+            )
+            msg = f"Agreed to revised advance amount of ₹{booking.agreed_advance_amount}."
+        else:
+            booking.advance_negotiation_status = 'rejected'
+            booking.agreed_advance_amount = booking.snapshot_deposit_amount
+            booking.record_status_change(
+                booking.status,
+                actor_id=profile.id,
+                note=f"Rejected revised advance proposal. Reverted to ₹{booking.snapshot_deposit_amount}. {response_note}"
+            )
+            booking.save()
+
+            Notification.objects.create(
+                recipient=recipient,
+                actor=profile,
+                notification_type='advance_rejected',
+                title='Advance Revision Rejected',
+                message=f"{profile.full_name} declined the advance revision. Original term of ₹{booking.snapshot_deposit_amount} stands.",
+                booking=booking,
+                target_modal='financials',
+                target_id=str(booking.id)
+            )
+            msg = f"Rejected revised advance proposal. Reverted to original ₹{booking.snapshot_deposit_amount}."
+
+        return Response({
+            'message': msg,
+            'booking': BookingSerializer(booking).data,
+        })
+
+
+# ========================================================
+# RENT ADJUSTMENT VIEWS (Section 4)
+# ========================================================
+
+class BookingProposeRentAdjustmentView(APIView):
+    """
+    Allow lender to propose an adjustment to the final calculated rent after return.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        from .serializers import RentAdjustmentProposeSerializer, BookingSerializer
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return Response({'error': 'Student profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            booking = Booking.objects.select_related('borrower', 'lender', 'listing').get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({'error': 'Booking not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.id != booking.lender_id:
+            return Response({'error': 'Unauthorized: Only the lender can propose a rent adjustment.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if booking.status not in ['returned', 'completed']:
+            return Response({'error': 'Rent adjustment can only be proposed after item return is verified.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = RentAdjustmentProposeSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        proposed_rent = serializer.validated_data['proposed_rent']
+        reason = serializer.validated_data['reason'].strip()
+
+        booking.lender_proposed_rent = proposed_rent
+        booking.rent_adjustment_status = 'proposed'
+        booking.rent_adjustment_reason = reason
+        booking.record_status_change(
+            booking.status,
+            actor_id=profile.id,
+            note=f"Lender proposed final rent adjustment to ₹{proposed_rent}: {reason}"
+        )
+        booking.save()
+
+        # Notify borrower
+        from .models import Notification
+        Notification.objects.create(
+            recipient=booking.borrower,
+            actor=profile,
+            notification_type='rent_adj_proposed',
+            title='Rent Adjustment Proposed',
+            message=f"Lender proposed final rent of ₹{proposed_rent} for '{booking.listing.title}'. Reason: {reason}",
+            booking=booking,
+            target_modal='financials',
+            target_id=str(booking.id)
+        )
+
+        calculated_baseline = booking.actual_rent_calculated if booking.actual_rent_calculated is not None else (booking.calculated_total_rent or Decimal('0.00'))
+        difference = proposed_rent - calculated_baseline
+
+        return Response({
+            'message': f"Proposed final rent adjustment of ₹{proposed_rent} submitted for borrower approval.",
+            'booking': BookingSerializer(booking).data,
+            'adjustment': {
+                'proposed_rent': str(booking.lender_proposed_rent),
+                'system_calculated_rent': str(calculated_baseline),
+                'difference': str(difference),
+                'reason': booking.rent_adjustment_reason,
+                'status': booking.rent_adjustment_status,
+            }
+        })
+
+
+class BookingRespondRentAdjustmentView(APIView):
+    """
+    Borrower accepts or rejects lender's proposed rent adjustment.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        from .serializers import RentAdjustmentRespondSerializer, BookingSerializer
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return Response({'error': 'Student profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            booking = Booking.objects.select_related('borrower', 'lender', 'listing').get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({'error': 'Booking not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.id != booking.borrower_id:
+            return Response({'error': 'Unauthorized: Only the borrower can respond to rent adjustments.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if booking.rent_adjustment_status != 'proposed':
+            return Response({'error': 'No pending rent adjustment proposal to respond to.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = RentAdjustmentRespondSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        action = serializer.validated_data['action']
+        reason = serializer.validated_data.get('reason', '').strip()
+
+        if action == 'accept':
+            booking.rent_adjustment_status = 'accepted'
+            booking.record_status_change(
+                booking.status,
+                actor_id=profile.id,
+                note=f"Borrower accepted rent adjustment to ₹{booking.lender_proposed_rent}."
+            )
+            msg = f"Accepted rent adjustment to ₹{booking.lender_proposed_rent}."
+        else:
+            booking.rent_adjustment_status = 'rejected'
+            booking.rent_adjustment_rejected_reason = reason
+            booking.record_status_change(
+                booking.status,
+                actor_id=profile.id,
+                note=f"Borrower rejected rent adjustment. Reason: {reason}"
+            )
+            msg = "Rejected rent adjustment proposal. Original system calculation retained."
+
+        booking.save()
+
+        from .models import Notification
+        Notification.objects.create(
+            recipient=booking.lender,
+            actor=profile,
+            notification_type='rent_adj_resolved',
+            title=f"Rent Adjustment {action.capitalize()}ed",
+            message=f"Borrower {action}ed your proposed rent adjustment for '{booking.listing.title}'.",
+            booking=booking,
+            target_modal='financials',
+            target_id=str(booking.id)
+        )
+
+        return Response({
+            'message': msg,
+            'booking': BookingSerializer(booking).data,
+        })
+
+
+# ========================================================
+# LATE FEE ESTIMATE VIEW (Section 5)
+# ========================================================
+
+class BookingLateFeeEstimateView(APIView):
+    """
+    Get transparent late fee calculation and policy description for a booking.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return Response({'error': 'Student profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            booking = Booking.objects.select_related('listing').get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({'error': 'Booking not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.id not in [booking.borrower_id, booking.lender_id]:
+            return Response({'error': 'Unauthorized to view late fee calculations for this booking.'}, status=status.HTTP_403_FORBIDDEN)
+
+        from .duration_rent_service import calculate_late_penalty_estimate
+        estimate = calculate_late_penalty_estimate(booking)
+        return Response(estimate)
+
+
+# ========================================================
+# MUTUAL SETTLEMENT AGREEMENT VIEW (Section 6)
+# ========================================================
+
+class BookingAgreeSettlementView(APIView):
+    """
+    Allows borrower or lender to sign off on the itemized settlement bill.
+    Distinguishes bill agreement from direct money transfer confirmation.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        from .financial_logic import get_booking_financial_summary
+        from .serializers import BookingSerializer
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return Response({'error': 'Student profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            booking = Booking.objects.select_related('borrower', 'lender', 'listing').get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({'error': 'Booking not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.id not in [booking.borrower_id, booking.lender_id]:
+            return Response({'error': 'Unauthorized: Only participants can sign off on settlement.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if booking.status not in ['returned', 'completed']:
+            return Response({'error': 'Settlement can only be agreed after item return is verified.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from django.utils import timezone
+        now = timezone.now()
+        if profile.id == booking.borrower_id:
+            booking.settlement_agreed_by_borrower = True
+            booking.record_status_change(booking.status, actor_id=profile.id, note="Borrower agreed to final settlement terms.")
+            counterparty = booking.lender
+        else:
+            booking.settlement_agreed_by_lender = True
+            booking.record_status_change(booking.status, actor_id=profile.id, note="Lender agreed to final settlement terms.")
+            counterparty = booking.borrower
+
+        if booking.settlement_agreed_by_borrower and booking.settlement_agreed_by_lender:
+            booking.settlement_agreed_at = now
+            booking.record_status_change(booking.status, actor_id=profile.id, note="Mutual settlement agreement reached by both parties.")
+
+        booking.save()
+
+        # Send notification to counterparty
+        from .models import Notification
+        Notification.objects.create(
+            recipient=counterparty,
+            actor=profile,
+            notification_type='settlement_agreed',
+            title='Settlement Terms Agreed',
+            message=f"{profile.full_name} has signed off on the settlement terms for '{booking.listing.title}'.",
+            booking=booking,
+            target_modal='financials',
+            target_id=str(booking.id)
+        )
+
+        is_mutually_agreed = bool(booking.settlement_agreed_by_borrower and booking.settlement_agreed_by_lender)
+        return Response({
+            'message': 'You have successfully signed off on the settlement terms.',
+            'financial_summary': get_booking_financial_summary(booking),
+            'booking': BookingSerializer(booking).data,
+            'is_mutually_agreed': is_mutually_agreed,
+        })
+
+
+# ========================================================
+# LENDER RE-LISTING CHOICE VIEW (Section 9)
+# ========================================================
+
+class BookingRelistChoiceView(APIView):
+    """
+    Provides the lender with exactly three explicit choices after verified physical return:
+    1. 'relist' - Reactivate existing listing if no conflicts.
+    2. 'edit' - Keep listing unlisted until lender saves edits.
+    3. 'archive' - Keep listing permanently archived/unlisted.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        from .serializers import RelistChoiceSerializer, BookingSerializer, ListingSerializer
+
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return Response({'error': 'Student profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            booking = Booking.objects.select_related('lender', 'listing').get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({'error': 'Booking not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.id != booking.lender_id:
+            return Response({'error': 'Unauthorized: Only the item lender can decide re-listing.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if booking.status not in ['returned', 'completed']:
+            return Response({'error': 'Re-listing choice is only available after physical return is verified.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = RelistChoiceSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        choice = serializer.validated_data['choice']
+        listing = booking.listing
+
+        if choice == 'relist':
+            # Check if there are other conflicting accepted or active bookings for this item
+            conflicting_booking = Booking.objects.filter(
+                listing=listing,
+                status__in=['accepted', 'active']
+            ).exclude(id=booking.id).first()
+            if conflicting_booking:
+                return Response(
+                    {'error': f"Cannot relist immediately: Another reservation ({conflicting_booking.status}) exists for this item."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            listing.is_available = True
+            listing.status = 'active'
+            listing.save(update_fields=['is_available', 'status', 'updated_at'])
+            booking.relist_choice = 'relist'
+            booking.relist_prompted = False
+            msg = "Listing has been successfully reactivated and is now visible to campus students."
+
+        elif choice == 'edit':
+            booking.relist_choice = 'edit'
+            booking.relist_prompted = False
+            msg = "Listing retained for editing. It will remain unavailable until you save your changes."
+
+        else:  # 'archive'
+            listing.is_available = False
+            listing.status = 'archived'
+            listing.save(update_fields=['is_available', 'status', 'updated_at'])
+            booking.relist_choice = 'archive'
+            booking.relist_prompted = False
+            msg = "Listing has been archived and will not be relisted."
+
+        booking.save(update_fields=['relist_choice', 'relist_prompted', 'updated_at'])
+
+        return Response({
+            'message': msg,
+            'relist_choice': choice,
+            'listing': ListingSerializer(listing).data,
+            'booking': BookingSerializer(booking).data,
+        })
+
+
+# ========================================================
+# RATINGS & REVIEWS VIEWS (Section 10)
+# ========================================================
+
+class BookingSubmitReviewView(APIView):
+    """
+    Allows eligible borrower to submit separate Product (1-5★) and Lender (1-5★) reviews
+    after verified physical return. Strictly 1 per type per booking.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        from .models import Review
+        from .serializers import ReviewCreateSerializer, ReviewSerializer
+        from .trust_score_service import calculate_and_update_trust_score
+
+        profile = getattr(request.user, 'profile', None)
+        if not profile:
+            return Response({'error': 'Student profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            booking = Booking.objects.select_related('borrower', 'lender', 'listing').get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({'error': 'Booking not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.id != booking.borrower_id:
+            return Response({'error': 'Unauthorized: Only the assigned borrower can submit reviews for this booking.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if booking.status not in ['returned', 'completed'] or not booking.return_confirmed_at:
+            return Response({'error': 'Reviews can only be submitted after verified item return.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = ReviewCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        review_type = serializer.validated_data['review_type']
+        rating = serializer.validated_data['rating']
+        comment = serializer.validated_data.get('comment', '').strip()
+
+        # Check for duplicate submission
+        if Review.objects.filter(booking=booking, review_type=review_type).exists():
+            return Response(
+                {'error': f"You have already submitted a {review_type} review for this booking."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if review_type == 'product':
+            review = Review.objects.create(
+                booking=booking,
+                reviewer=profile,
+                review_type='product',
+                target_listing=booking.listing,
+                rating=rating,
+                comment=comment,
+            )
+            # Recalculate listing stats
+            all_reviews = Review.objects.filter(target_listing=booking.listing, review_type='product')
+            count = all_reviews.count()
+            avg = sum(r.rating for r in all_reviews) / count
+            booking.listing.average_rating = Decimal(str(round(avg, 2)))
+            booking.listing.review_count = count
+            booking.listing.save(update_fields=['average_rating', 'review_count', 'updated_at'])
+
+        else:  # 'lender'
+            review = Review.objects.create(
+                booking=booking,
+                reviewer=profile,
+                review_type='lender',
+                target_lender=booking.lender,
+                rating=rating,
+                comment=comment,
+            )
+            # Recalculate lender trust score & review stats
+            calculate_and_update_trust_score(booking.lender)
+
+        return Response({
+            'message': f"Thank you! Your {review_type} review has been submitted successfully.",
+            'review': ReviewSerializer(review).data,
+        }, status=status.HTTP_201_CREATED)
+
+
+class ListingReviewsListView(APIView):
+    """
+    Public listing of verified reviews for a specific item.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        from .models import Review
+        from .serializers import ReviewSerializer
+        try:
+            listing = Listing.objects.get(pk=pk)
+        except Listing.DoesNotExist:
+            return Response({'error': 'Listing not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        reviews = Review.objects.filter(target_listing=listing, review_type='product', is_moderated=False).select_related('reviewer', 'reviewer__college', 'reviewer__user').order_by('-created_at')
+        count = reviews.count()
+        avg = float(listing.average_rating) if count > 0 else 0.0
+
+        return Response({
+            'listing_id': listing.id,
+            'count': count,
+            'average_rating': avg,
+            'reviews': ReviewSerializer(reviews, many=True).data,
+        })
+
+
+class ProfileReviewsListView(APIView):
+    """
+    Public listing of reviews received by a lender.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        from .models import Review
+        from .serializers import ReviewSerializer
+        try:
+            profile = StudentProfile.objects.get(pk=pk)
+        except StudentProfile.DoesNotExist:
+            return Response({'error': 'Student profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        reviews = Review.objects.filter(target_lender=profile, review_type='lender', is_moderated=False).select_related('reviewer', 'reviewer__college', 'reviewer__user').order_by('-created_at')
+        count = reviews.count()
+        avg = float(profile.lender_average_rating) if count > 0 else 0.0
+
+        return Response({
+            'profile_id': profile.id,
+            'lender_name': profile.full_name,
+            'count': count,
+            'average_rating': avg,
+            'reviews': ReviewSerializer(reviews, many=True).data,
+        })
+
+
+# ========================================================
+# DYNAMIC & EXPLAINABLE TRUST SCORE VIEW (Section 11)
+# ========================================================
+
+class ProfileTrustScoreView(APIView):
+    """
+    Authoritative, explainable trust score breakdown based on verified history.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        from .trust_score_service import calculate_and_update_trust_score
+        try:
+            profile = StudentProfile.objects.get(pk=pk)
+        except StudentProfile.DoesNotExist:
+            return Response({'error': 'Student profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        breakdown = calculate_and_update_trust_score(profile)
+        return Response(breakdown)
+
 
 
 

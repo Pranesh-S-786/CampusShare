@@ -15,6 +15,7 @@ from .models import (
     Notification,
     Conversation,
     Message,
+    Review,
 )
 
 
@@ -44,6 +45,11 @@ class LenderSummarySerializer(serializers.ModelSerializer):
             'major',
             'is_college_verified',
             'verification_status',
+            'trust_score',
+            'trust_status',
+            'completed_rentals_count',
+            'lender_average_rating',
+            'lender_review_count',
         ]
 
     def get_college_short_code(self, obj):
@@ -69,6 +75,9 @@ class ListingSerializer(serializers.ModelSerializer):
     images = ListingImageSerializer(many=True, read_only=True)
     condition_display = serializers.CharField(source='get_condition_display', read_only=True)
     listing_type_display = serializers.CharField(source='get_listing_type_display', read_only=True)
+    availability_status = serializers.SerializerMethodField()
+    availability_label = serializers.SerializerMethodField()
+    booked_until = serializers.SerializerMethodField()
 
     class Meta:
         model = Listing
@@ -90,11 +99,32 @@ class ListingSerializer(serializers.ModelSerializer):
             'images',
             'is_available',
             'status',
+            'availability_status',
+            'availability_label',
+            'booked_until',
+            'average_rating',
+            'review_count',
             'college',
             'lender',
             'created_at',
             'updated_at',
         ]
+
+    def _get_avail_info(self, obj):
+        if not hasattr(obj, '_cached_avail_info'):
+            from .booking_logic import get_listing_availability_info
+            obj._cached_avail_info = get_listing_availability_info(obj)
+        return obj._cached_avail_info
+
+    def get_availability_status(self, obj):
+        return self._get_avail_info(obj)['availability_status']
+
+    def get_availability_label(self, obj):
+        return self._get_avail_info(obj)['status_label']
+
+    def get_booked_until(self, obj):
+        return self._get_avail_info(obj)['booked_until']
+
 
 
 class ListingWriteSerializer(serializers.ModelSerializer):
@@ -291,12 +321,27 @@ class BookingSerializer(serializers.ModelSerializer):
             'snapshot_price',
             'snapshot_pricing_unit',
             'snapshot_deposit_amount',
+            'agreed_advance_amount',
+            'advance_negotiation_status',
+            'advance_proposal_notes',
             'calculated_total_rent',
+            'actual_rent_calculated',
+            'actual_duration_display',
+            'lender_proposed_rent',
+            'rent_adjustment_status',
+            'rent_adjustment_reason',
+            'rent_adjustment_rejected_reason',
             'total_due_upfront',
             'borrower_message',
             'owner_response_note',
             'pickup_confirmed_at',
             'return_confirmed_at',
+            'settlement_agreed_by_borrower',
+            'settlement_agreed_by_lender',
+            'settlement_status',
+            'settlement_agreed_at',
+            'relist_prompted',
+            'relist_choice',
             'status_history',
             'financial_summary',
             'created_at',
@@ -306,6 +351,79 @@ class BookingSerializer(serializers.ModelSerializer):
     def get_financial_summary(self, obj):
         from .financial_logic import get_booking_financial_summary
         return get_booking_financial_summary(obj)
+
+
+# ========================================================
+# ADVANCE PAYMENT NEGOTIATION SERIALIZERS (Section 2)
+# ========================================================
+
+class AdvanceProposalSerializer(serializers.Serializer):
+    proposed_amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.00'))
+    reason = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+
+
+class AdvanceRespondSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=['accept', 'reject'])
+    response_note = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+
+
+# ========================================================
+# RENT ADJUSTMENT SERIALIZERS (Section 4)
+# ========================================================
+
+class RentAdjustmentProposeSerializer(serializers.Serializer):
+    proposed_rent = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.00'))
+    reason = serializers.CharField(max_length=255)
+
+
+class RentAdjustmentRespondSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=['accept', 'reject'])
+    reason = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
+
+
+# ========================================================
+# LENDER RE-LISTING CHOICE SERIALIZER (Section 9)
+# ========================================================
+
+class RelistChoiceSerializer(serializers.Serializer):
+    choice = serializers.ChoiceField(choices=['relist', 'edit', 'archive'])
+
+
+# ========================================================
+# RATINGS & REVIEWS SERIALIZERS (Section 10)
+# ========================================================
+
+class ReviewSerializer(serializers.ModelSerializer):
+    reviewer = LenderSummarySerializer(read_only=True)
+
+    class Meta:
+        model = Review
+        fields = [
+            'id',
+            'booking',
+            'reviewer',
+            'review_type',
+            'target_listing',
+            'target_lender',
+            'rating',
+            'comment',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'booking', 'reviewer', 'created_at', 'updated_at']
+
+
+class ReviewCreateSerializer(serializers.Serializer):
+    review_type = serializers.ChoiceField(choices=['product', 'lender'])
+    rating = serializers.IntegerField(min_value=1, max_value=5)
+    comment = serializers.CharField(max_length=1000, required=False, allow_blank=True, default='')
+    review_text = serializers.CharField(max_length=1000, required=False, allow_blank=True, default='')
+
+    def validate(self, attrs):
+        if not attrs.get('comment') and attrs.get('review_text'):
+            attrs['comment'] = attrs['review_text']
+        return attrs
+
 
 
 class HandoverQRGenerateSerializer(serializers.Serializer):

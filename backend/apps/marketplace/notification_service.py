@@ -336,3 +336,32 @@ def notify_new_message(message_obj):
         target_modal='messages',
         target_id=str(message_obj.conversation_id),
     )
+
+
+def notify_relist_prompt(booking):
+    return create_notification(
+        recipient=booking.lender,
+        actor=booking.borrower,
+        notification_type='relist_prompt',
+        title='Re-listing Option Available',
+        message=f"'{booking.listing.title}' has been returned. Would you like to list this product again?",
+        booking=booking,
+        listing=booking.listing,
+        target_modal='my_listings',
+        target_id=str(booking.listing_id),
+    )
+
+
+def notify_review_requested(booking):
+    return create_notification(
+        recipient=booking.borrower,
+        actor=booking.lender,
+        notification_type='review_requested',
+        title='Review Your Experience',
+        message=f"Your rental of '{booking.listing.title}' is complete! Please rate the product and your peer lender.",
+        booking=booking,
+        listing=booking.listing,
+        target_modal='financials',
+        target_id=str(booking.id),
+    )
+

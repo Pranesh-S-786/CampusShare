@@ -33,6 +33,11 @@ export interface StudentProfile {
   major?: string
   student_id_number?: string
   bio?: string
+  trust_score?: number | null
+  trust_status?: string
+  completed_rentals_count?: number
+  lender_average_rating?: string | number | null
+  lender_review_count?: number
   created_at: string
   updated_at: string
 }
@@ -326,6 +331,11 @@ export interface MarketplaceLender {
   major?: string
   is_college_verified: boolean
   verification_status: 'unverified' | 'email_verified' | 'verified_student'
+  trust_score?: number | null
+  trust_status?: string
+  completed_rentals_count?: number
+  lender_average_rating?: string | number | null
+  lender_review_count?: number
 }
 
 export interface ListingCollege {
@@ -361,6 +371,11 @@ export interface MarketplaceListing {
   images: ListingImageItem[]
   is_available: boolean
   status: 'active' | 'unavailable' | 'rented' | 'paused' | 'archived'
+  availability_status?: 'available' | 'currently_booked' | 'return_overdue' | 'unavailable'
+  availability_label?: string
+  booked_until?: string | null
+  average_rating?: string | number | null
+  review_count?: number
   college: ListingCollege | null
   lender: MarketplaceLender
   created_at: string
@@ -553,6 +568,19 @@ export interface Booking {
   total_due_upfront: string
   pickup_confirmed_at?: string | null
   return_confirmed_at?: string | null
+  agreed_advance_amount?: string | number | null
+  advance_negotiation_status?: 'agreed' | 'proposed' | 'rejected'
+  advance_proposal_notes?: string
+  actual_rent_calculated?: string | number | null
+  actual_duration_display?: string
+  lender_proposed_rent?: string | number | null
+  rent_adjustment_status?: 'none' | 'proposed' | 'accepted' | 'rejected'
+  rent_adjustment_reason?: string
+  settlement_agreed_by_borrower?: boolean
+  settlement_agreed_by_lender?: boolean
+  settlement_status?: string
+  relist_prompted?: boolean
+  relist_choice?: 'relist' | 'edit' | 'archive' | null
   borrower_message: string
   owner_response_note: string
   status_history: BookingStatusHistoryItem[]
@@ -873,7 +901,47 @@ export interface FinancialSummary {
   refund_declared_amount: string
   refund_confirmed_amount: string
   settlement_status: string
+  settlement_status_display?: string
+  borrower_agreed_settlement?: boolean
+  lender_agreed_settlement?: boolean
+  actual_return_time?: string | null
   has_disputes: boolean
+  // Enhanced Dynamic Itemized Bill Fields (Sections 3, 4, 5, 6, 7)
+  actual_duration_display?: string
+  original_rent_estimate?: string
+  system_calculated_rent?: string
+  rent_adjustment_status?: string
+  lender_proposed_rent?: string | null
+  rent_adjustment_reason?: string
+  final_agreed_rent?: string
+  rent_status_label?: string
+  agreed_advance_deposit?: string
+  advance_negotiation_status?: string
+  advance_declared_paid?: string
+  advance_confirmed_received?: string
+  advance_disputed?: string
+  accepted_late_fees?: string
+  accepted_damage_fees?: string
+  other_accepted_adjustments?: string
+  total_accepted_penalties?: string
+  total_obligations?: string
+  net_lender_owes_borrower?: string
+  net_borrower_owes_lender?: string
+  settlement_agreed_by_borrower?: boolean
+  settlement_agreed_by_lender?: boolean
+  is_mutually_agreed?: boolean
+  adjustment_items?: Array<{
+    id: number
+    type: string
+    type_display: string
+    amount: string
+    reason: string
+    description?: string
+    evidence_url?: string
+    status: string
+    proposed_by_name: string
+    response_note?: string
+  }>
   disclaimer: string
 }
 
@@ -945,6 +1013,7 @@ export interface DepositRefundItem {
 
 export interface BookingFinancialsResponse {
   booking_id: number
+  booking?: Booking | null
   is_lender: boolean
   is_borrower: boolean
   summary: FinancialSummary
@@ -1262,6 +1331,210 @@ export async function sendConversationMessage(
   })
   return handleResponse(res)
 }
+
+// ========================================================
+// COMPLETE LIFECYCLE, SETTLEMENT, REVIEWS & TRUST ENHANCEMENTS
+// ========================================================
+
+export interface ReviewItem {
+  id: number
+  booking_id: number
+  reviewer_name: string
+  review_type: 'product' | 'lender'
+  rating: number
+  comment: string
+  target_listing_id?: number | null
+  target_lender_id?: number | null
+  created_at: string
+}
+
+export interface TrustScoreExplanation {
+  profile_id: number
+  trust_score: number | null
+  trust_status: string
+  status_label: string
+  confidence: string
+  completed_rentals_count: number
+  on_time_returns_count: number
+  early_returns_count: number
+  late_returns_count: number
+  confirmed_damage_count: number
+  disputed_claims_count: number
+  lender_rating_average: number | null
+  lender_review_count: number
+  explanation: string
+  scoring_rules: {
+    base_score: number
+    on_time_return_bonus: string
+    early_return_bonus: string
+    late_return_penalty: string
+    confirmed_damage_penalty: string
+    volume_booster: string
+  }
+}
+
+export interface ReviewItem {
+  id: number
+  booking_id: number
+  reviewer: BookingUserSummary
+  reviewee?: BookingUserSummary | null
+  listing_id?: number | null
+  listing_title?: string | null
+  review_type: 'product' | 'lender'
+  review_type_display?: string
+  rating: number
+  comment: string
+  created_at: string
+}
+
+export type Review = ReviewItem
+
+export interface LateFeeEstimate {
+  booking_id: number
+  end_date: string
+  grace_cutoff: string
+  is_late: boolean
+  is_overdue?: boolean
+  late_hours: number
+  hours_late?: number
+  suggested_late_fee: string
+  pricing_unit: string
+  policy_description: string
+  message?: string
+}
+
+// Advance Negotiation (Section 2)
+export async function proposeAdvancePayment(
+  bookingId: number,
+  payload: { proposed_amount: string | number; notes?: string }
+): Promise<{ message: string; booking: Booking }> {
+  const res = await fetch(`${API_BASE_URL}/marketplace/bookings/${bookingId}/propose-advance/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  return handleResponse(res)
+}
+
+export async function respondAdvancePayment(
+  bookingId: number,
+  payload: { action: 'accept' | 'reject'; notes?: string }
+): Promise<{ message: string; booking: Booking }> {
+  const res = await fetch(`${API_BASE_URL}/marketplace/bookings/${bookingId}/respond-advance/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  return handleResponse(res)
+}
+
+// Rent Adjustment (Section 4)
+export async function proposeRentAdjustment(
+  bookingId: number,
+  payload: { proposed_rent: string | number; reason: string }
+): Promise<{ message: string; booking: Booking; adjustment: any }> {
+  const res = await fetch(`${API_BASE_URL}/marketplace/bookings/${bookingId}/propose-rent-adjustment/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  return handleResponse(res)
+}
+
+export async function respondRentAdjustment(
+  bookingId: number,
+  payload: { action: 'accept' | 'reject'; reason?: string }
+): Promise<{ message: string; booking: Booking }> {
+  const res = await fetch(`${API_BASE_URL}/marketplace/bookings/${bookingId}/respond-rent-adjustment/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  return handleResponse(res)
+}
+
+// Late Fee Estimate (Section 5)
+export async function getLateFeeEstimate(bookingId: number): Promise<LateFeeEstimate> {
+  const res = await fetch(`${API_BASE_URL}/marketplace/bookings/${bookingId}/late-fee-estimate/`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  return handleResponse(res)
+}
+
+// Mutual Settlement (Section 6)
+export async function agreeToSettlement(bookingId: number): Promise<{
+  message: string
+  financial_summary: FinancialSummary
+  booking: Booking
+  is_mutually_agreed: boolean
+}> {
+  const res = await fetch(`${API_BASE_URL}/marketplace/bookings/${bookingId}/agree-settlement/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  })
+  return handleResponse(res)
+}
+
+// Re-listing Choice (Section 9)
+export async function submitRelistChoice(
+  bookingId: number,
+  payload: { choice: 'relist' | 'edit' | 'archive' }
+): Promise<{ message: string; relist_choice: string; listing: MarketplaceListing; booking: Booking }> {
+  const res = await fetch(`${API_BASE_URL}/marketplace/bookings/${bookingId}/relist-choice/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  return handleResponse(res)
+}
+
+// Reviews & Ratings (Section 10)
+export async function submitBookingReview(
+  bookingId: number,
+  payload: { review_type: 'product' | 'lender'; rating: number; comment?: string }
+): Promise<{ message: string; review: ReviewItem }> {
+  const res = await fetch(`${API_BASE_URL}/marketplace/bookings/${bookingId}/reviews/`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  })
+  return handleResponse(res)
+}
+
+export async function getListingReviews(listingId: number): Promise<{
+  count: number
+  average_rating: number
+  reviews: ReviewItem[]
+}> {
+  const res = await fetch(`${API_BASE_URL}/marketplace/listings/${listingId}/reviews/`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  return handleResponse(res)
+}
+
+export async function getProfileReviews(
+  profileId: number,
+  type?: 'product' | 'lender'
+): Promise<{ count: number; reviews: ReviewItem[] }> {
+  const query = type ? `?type=${type}` : ''
+  const res = await fetch(`${API_BASE_URL}/marketplace/profiles/${profileId}/reviews/${query}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  return handleResponse(res)
+}
+
+// Explainable Trust Score (Section 11)
+export async function getProfileTrustScore(profileId: number): Promise<TrustScoreExplanation> {
+  const res = await fetch(`${API_BASE_URL}/marketplace/profiles/${profileId}/trust-score/`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+  return handleResponse(res)
+}
+
 
 
 

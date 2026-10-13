@@ -245,10 +245,26 @@ class Stage10EndToEndAndSecurityTests(TestCase):
         self.assertTrue(any(n['notification_type'] == 'booking_accepted' for n in notif_b.data['notifications']))
 
         # ==========================================
-        # STEP 6: Pickup QR Generation & Verification
+        # STEP 6: Mutual Advance Confirmation & Pickup Handover
         # ==========================================
-        # Student A (lender) generates pickup QR
+        # Student B declares direct UPI payment for required advance/security deposit
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_b.key}')
+        dep_decl = self.client.post(f'/api/marketplace/bookings/{booking_id}/payments/declare/', {
+            'purpose': 'deposit',
+            'amount': '200.00',
+            'payment_method': 'upi',
+            'transaction_reference': 'UPI9876543211',
+            'payer_notes': 'Advance deposit paid',
+        })
+        self.assertEqual(dep_decl.status_code, status.HTTP_201_CREATED)
+        dep_payment_id = dep_decl.data['payment']['id']
+
+        # Student A confirms receipt of advance
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_a.key}')
+        conf_dep = self.client.post(f'/api/marketplace/payments/{dep_payment_id}/confirm/')
+        self.assertEqual(conf_dep.status_code, status.HTTP_200_OK)
+
+        # Student A (lender) generates pickup QR
         qr_gen_resp = self.client.post(f'/api/marketplace/bookings/{booking_id}/generate-qr/', {
             'action_type': 'pickup',
         })
@@ -282,7 +298,7 @@ class Stage10EndToEndAndSecurityTests(TestCase):
         self.assertEqual(replay_resp.status_code, status.HTTP_400_BAD_REQUEST)
 
         # ==========================================
-        # STEP 7: Direct Peer Payment Tracking (Stage 8)
+        # STEP 7: Direct Peer Rent Payment Tracking (Stage 8)
         # ==========================================
         # Student B declares direct UPI payment for rent
         rent_decl = self.client.post(f'/api/marketplace/bookings/{booking_id}/payments/declare/', {
@@ -295,23 +311,10 @@ class Stage10EndToEndAndSecurityTests(TestCase):
         self.assertEqual(rent_decl.status_code, status.HTTP_201_CREATED)
         rent_payment_id = rent_decl.data['payment']['id']
 
-        # Student B declares direct UPI payment for security deposit
-        dep_decl = self.client.post(f'/api/marketplace/bookings/{booking_id}/payments/declare/', {
-            'purpose': 'deposit',
-            'amount': '200.00',
-            'payment_method': 'upi',
-            'transaction_reference': 'UPI9876543211',
-            'payer_notes': 'Deposit paid',
-        })
-        self.assertEqual(dep_decl.status_code, status.HTTP_201_CREATED)
-        dep_payment_id = dep_decl.data['payment']['id']
-
-        # Student A confirms receipt
+        # Student A confirms receipt of rent
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_a.key}')
         conf_rent = self.client.post(f'/api/marketplace/payments/{rent_payment_id}/confirm/')
         self.assertEqual(conf_rent.status_code, status.HTTP_200_OK)
-        conf_dep = self.client.post(f'/api/marketplace/payments/{dep_payment_id}/confirm/')
-        self.assertEqual(conf_dep.status_code, status.HTTP_200_OK)
 
         # Verify financial summary
         fin_resp = self.client.get(f'/api/marketplace/bookings/{booking_id}/financials/')

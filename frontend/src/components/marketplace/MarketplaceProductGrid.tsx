@@ -15,6 +15,9 @@ import {
   Shirt,
   MoreHorizontal,
   ArrowRight,
+  Star,
+  Clock,
+  Shield,
 } from 'lucide-react'
 import {
   type MarketplaceListing,
@@ -262,14 +265,28 @@ export function MarketplaceProductGrid({
                   </button>
 
                   {/* Availability Badge */}
-                  <div className="absolute top-2.5 left-2.5 flex items-center space-x-1.5">
+                  <div className="absolute top-2.5 left-2.5 flex items-center space-x-1.5 flex-wrap gap-y-1">
                     <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-black/75 text-white backdrop-blur-xs">
                       {item.listing_type || 'rent'}
                     </span>
-                    {item.is_available && (
+                    {item.availability_status === 'return_overdue' ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-600 text-white shadow-2xs backdrop-blur-xs">
+                        <Clock className="w-2.5 h-2.5 mr-0.5 animate-pulse" />
+                        Return Overdue
+                      </span>
+                    ) : item.availability_status === 'currently_booked' ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-600 text-white shadow-2xs backdrop-blur-xs">
+                        <Clock className="w-2.5 h-2.5 mr-0.5" />
+                        Booked {item.booked_until ? `until ${new Date(item.booked_until).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : ''}
+                      </span>
+                    ) : item.is_available ? (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/95 text-emerald-800 shadow-2xs backdrop-blur-xs">
                         <CheckCircle2 className="w-2.5 h-2.5 mr-0.5 text-emerald-600" />
                         Available
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-stone-700 text-stone-200 shadow-2xs backdrop-blur-xs">
+                        Unavailable
                       </span>
                     )}
                   </div>
@@ -278,9 +295,18 @@ export function MarketplaceProductGrid({
                 {/* Details Body */}
                 <div className="p-3.5 flex-1 flex flex-col justify-between space-y-3">
                   <div>
-                    <h3 className="text-xs sm:text-sm font-bold text-stone-900 group-hover:text-emerald-900 transition-colors line-clamp-1">
-                      {item.title}
-                    </h3>
+                    <div className="flex items-start justify-between gap-1">
+                      <h3 className="text-xs sm:text-sm font-bold text-stone-900 group-hover:text-emerald-900 transition-colors line-clamp-1">
+                        {item.title}
+                      </h3>
+                      {typeof item.review_count === 'number' && item.review_count > 0 && (
+                        <div className="flex items-center space-x-0.5 shrink-0 text-amber-600 font-bold text-[11px]">
+                          <Star className="w-3 h-3 fill-amber-400 text-amber-500" />
+                          <span>{Number(item.average_rating || 5).toFixed(1)}</span>
+                          <span className="text-[10px] text-stone-400 font-normal">({item.review_count})</span>
+                        </div>
+                      )}
+                    </div>
                     <p className="text-[11px] text-stone-500 mt-0.5 truncate">
                       {item.subcategory || item.category.name}
                     </p>
@@ -337,6 +363,17 @@ export function MarketplaceProductGrid({
                         </span>
                       </div>
                     </div>
+
+                    {/* Lender Trust Score Pill */}
+                    {item.lender.trust_score !== undefined && (
+                      <div
+                        className="flex items-center space-x-1 px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-900 border border-emerald-200/80 text-[10px] font-semibold shrink-0"
+                        title={`Lender Trust Score: ${item.lender.trust_score}/100`}
+                      >
+                        <Shield className="w-2.5 h-2.5 text-emerald-700" />
+                        <span>{item.lender.trust_score}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

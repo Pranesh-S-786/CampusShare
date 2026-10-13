@@ -11,9 +11,15 @@ import {
   Send,
   Check,
   ExternalLink,
+  Clock,
+  RotateCcw,
+  Star,
+  ShieldAlert,
+  Scale,
 } from 'lucide-react'
 import {
   type BookingFinancialsResponse,
+  type Booking,
   getBookingFinancials,
   declarePayment,
   confirmPayment,
@@ -23,11 +29,21 @@ import {
   declareDepositRefund,
   confirmDepositRefund,
   uploadPaymentEvidence,
+  proposeAdvancePayment,
+  respondAdvancePayment,
+  proposeRentAdjustment,
+  respondRentAdjustment,
+  getLateFeeEstimate,
+  agreeToSettlement,
+  type LateFeeEstimate,
 } from '../../services/api'
 import { SettlementBillModal } from './SettlementBillModal'
+import { RelistChoiceModal } from './RelistChoiceModal'
+import { ReviewModal } from './ReviewModal'
 
 interface BookingFinancialModalProps {
   bookingId: number
+  booking?: Booking | null
   isOpen: boolean
   onClose: () => void
   onUpdated?: () => void
@@ -35,6 +51,7 @@ interface BookingFinancialModalProps {
 
 export function BookingFinancialModal({
   bookingId,
+  booking: initialBooking,
   isOpen,
   onClose,
   onUpdated,
@@ -43,10 +60,34 @@ export function BookingFinancialModal({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Submodal: Printable Bill
   const [isBillOpen, setIsBillOpen] = useState(false)
+
+  // Submodal: Re-listing & Reviews
+  const [isRelistModalOpen, setIsRelistModalOpen] = useState(false)
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
+
+  // Advance Negotiation State (Section 2)
+  const [isProposingAdvance, setIsProposingAdvance] = useState(false)
+  const [proposedAdvanceAmount, setProposedAdvanceAmount] = useState('')
+  const [proposedAdvanceNotes, setProposedAdvanceNotes] = useState('')
+
+  // Rent Adjustment State (Section 4)
+  const [isProposingRentAdj, setIsProposingRentAdj] = useState(false)
+  const [proposedRentAmount, setProposedRentAmount] = useState('')
+  const [proposedRentReason, setProposedRentReason] = useState('')
+  const [isRejectingRentAdj, setIsRejectingRentAdj] = useState(false)
+  const [rentAdjRejectReason, setRentAdjRejectReason] = useState('')
+
+  // Late Fee Estimate State (Section 5)
+  const [lateFeeEstimate, setLateFeeEstimate] = useState<LateFeeEstimate | null>(null)
+  const [isLoadingLateFee, setIsLoadingLateFee] = useState(false)
+
+  // Mutual Settlement State (Section 6)
+  const [isSigningSettlement, setIsSigningSettlement] = useState(false)
 
   // Declare Payment Form State
   const [isDeclaringPayment, setIsDeclaringPayment] = useState(false)
@@ -279,6 +320,135 @@ export function BookingFinancialModal({
     }
   }
 
+  // Propose Advance (Section 2)
+  const handleProposeAdvanceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!proposedAdvanceAmount || Number(proposedAdvanceAmount) < 0) {
+      setActionError('Please enter a valid advance amount.')
+      return
+    }
+    setIsSubmitting(true)
+    setActionError(null)
+    setActionSuccess(null)
+    try {
+      const res = await proposeAdvancePayment(bookingId, {
+        proposed_amount: proposedAdvanceAmount,
+        notes: proposedAdvanceNotes,
+      })
+      setIsProposingAdvance(false)
+      setProposedAdvanceAmount('')
+      setProposedAdvanceNotes('')
+      setActionSuccess(res.message)
+      loadFinancials()
+      onUpdated?.()
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'Failed to propose revised advance.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Respond to Advance (Section 2)
+  const handleRespondAdvance = async (action: 'accept' | 'reject') => {
+    setIsSubmitting(true)
+    setActionError(null)
+    setActionSuccess(null)
+    try {
+      const res = await respondAdvancePayment(bookingId, { action })
+      setActionSuccess(res.message)
+      loadFinancials()
+      onUpdated?.()
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : `Failed to ${action} advance proposal.`)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Propose Rent Adjustment (Section 4)
+  const handleProposeRentAdjSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!proposedRentAmount || Number(proposedRentAmount) < 0 || !proposedRentReason.trim()) {
+      setActionError('Please enter a valid proposed rent and reason.')
+      return
+    }
+    setIsSubmitting(true)
+    setActionError(null)
+    setActionSuccess(null)
+    try {
+      const res = await proposeRentAdjustment(bookingId, {
+        proposed_rent: proposedRentAmount,
+        reason: proposedRentReason,
+      })
+      setIsProposingRentAdj(false)
+      setProposedRentAmount('')
+      setProposedRentReason('')
+      setActionSuccess(res.message)
+      loadFinancials()
+      onUpdated?.()
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'Failed to propose rent adjustment.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Respond to Rent Adjustment (Section 4)
+  const handleRespondRentAdj = async (action: 'accept' | 'reject') => {
+    if (action === 'reject' && !rentAdjRejectReason.trim()) {
+      alert('Please provide a reason for rejecting the rent adjustment.')
+      return
+    }
+    setIsSubmitting(true)
+    setActionError(null)
+    setActionSuccess(null)
+    try {
+      const res = await respondRentAdjustment(bookingId, {
+        action,
+        reason: rentAdjRejectReason,
+      })
+      setIsRejectingRentAdj(false)
+      setRentAdjRejectReason('')
+      setActionSuccess(res.message)
+      loadFinancials()
+      onUpdated?.()
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : `Failed to ${action} rent adjustment.`)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Fetch Late Fee Estimate (Section 5)
+  const handleFetchLateFee = async () => {
+    setIsLoadingLateFee(true)
+    try {
+      const est = await getLateFeeEstimate(bookingId)
+      setLateFeeEstimate(est)
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Could not fetch late fee estimate.')
+    } finally {
+      setIsLoadingLateFee(false)
+    }
+  }
+
+  // Mutual Settlement Sign-Off (Section 6)
+  const handleSignSettlement = async () => {
+    setIsSigningSettlement(true)
+    setActionError(null)
+    setActionSuccess(null)
+    try {
+      const res = await agreeToSettlement(bookingId)
+      setActionSuccess(res.message)
+      loadFinancials()
+      onUpdated?.()
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'Failed to sign off on settlement.')
+    } finally {
+      setIsSigningSettlement(false)
+    }
+  }
+
   return (
     <>
       <div className="fixed inset-0 z-40 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
@@ -400,10 +570,329 @@ export function BookingFinancialModal({
                     <span className="font-extrabold text-emerald-800 text-sm">
                       ₹{s.net_refundable_deposit}
                     </span>
-                    <span className="text-[10px] text-stone-500 block capitalize">
-                      Status: {s.refund_status.replace('_', ' ')}
-                    </span>
                   </div>
+                </div>
+
+                {actionSuccess && (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center space-x-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{actionSuccess}</span>
+                  </div>
+                )}
+
+                {/* ADVANCE PAYMENT & TWO-PARTY CONFIRMATION (Section 2) */}
+                {Number(s.agreed_deposit) > 0 && (
+                  <div className="p-4 rounded-3xl bg-amber-50/50 border border-amber-200/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center space-x-2">
+                          <h4 className="font-bold text-amber-950 text-xs sm:text-sm">
+                            Mutual Advance Payment Confirmation
+                          </h4>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            Number(s.deposit_confirmed) >= Number(s.agreed_deposit)
+                              ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                              : 'bg-amber-100 text-amber-900 border border-amber-300'
+                          }`}>
+                            {Number(s.deposit_confirmed) >= Number(s.agreed_deposit)
+                              ? '✓ Advance Confirmed'
+                              : 'Pending Lender Confirmation'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-amber-800">
+                          Agreed Advance: <strong>₹{s.agreed_deposit}</strong> • Declared by Borrower: ₹{s.deposit_declared} • Confirmed by Lender: ₹{s.deposit_confirmed}
+                        </p>
+                      </div>
+
+                      {isBorrower && !isProposingAdvance && Number(s.deposit_confirmed) < Number(s.agreed_deposit) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsProposingAdvance(true)
+                            setProposedAdvanceAmount(s.agreed_deposit)
+                          }}
+                          className="px-3 py-1.5 rounded-full text-xs font-semibold text-amber-900 bg-white hover:bg-amber-100/60 border border-amber-300 shadow-2xs transition-all cursor-pointer"
+                        >
+                          Propose Revised Amount
+                        </button>
+                      )}
+                    </div>
+
+                    <p className="text-[10px] text-stone-600 bg-white/70 p-2.5 rounded-xl border border-amber-200/60 leading-relaxed">
+                      <strong>Prerequisite Rule:</strong> Both borrower direct transfer declaration and lender receipt confirmation must be satisfied before pickup QR handover can occur. CampusShare never holds money or operates an escrow wallet.
+                    </p>
+
+                    {/* Revised Advance Proposal Form for Borrower */}
+                    {isProposingAdvance && (
+                      <form onSubmit={handleProposeAdvanceSubmit} className="p-3.5 rounded-2xl bg-white border border-amber-300 space-y-3 animate-in fade-in">
+                        <div className="flex items-center justify-between pb-1 border-b border-stone-200">
+                          <span className="text-xs font-bold text-stone-900">
+                            Propose Different Advance Amount
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setIsProposingAdvance(false)}
+                            className="text-stone-400 hover:text-stone-600 text-xs font-semibold cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <label className="block text-stone-600 font-medium mb-1">
+                              Proposed Advance / Deposit (₹)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              required
+                              value={proposedAdvanceAmount}
+                              onChange={(e) => setProposedAdvanceAmount(e.target.value)}
+                              className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-200 text-stone-800 font-bold focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-stone-600 font-medium mb-1">
+                              Negotiation Note to Lender
+                            </label>
+                            <input
+                              type="text"
+                              value={proposedAdvanceNotes}
+                              onChange={(e) => setProposedAdvanceNotes(e.target.value)}
+                              placeholder="Reason for revised amount..."
+                              className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-200 text-stone-800 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsProposingAdvance(false)}
+                            className="px-3 py-1 rounded text-xs font-semibold text-stone-600 hover:bg-stone-100 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="px-4 py-1.5 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-xs cursor-pointer"
+                          >
+                            Submit Proposal to Lender
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* Lender Approval Controls for Proposed Advance */}
+                    {isLender && s.advance_negotiation_status === 'proposed' && (
+                      <div className="p-3 rounded-2xl bg-amber-100/60 border border-amber-300 flex items-center justify-between text-xs">
+                        <div>
+                          <span className="font-bold text-amber-950 block">
+                            Borrower Proposed Revised Advance: ₹{s.agreed_advance_deposit}
+                          </span>
+                          <span className="text-[11px] text-amber-800">
+                            Do you agree to this updated security deposit?
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => handleRespondAdvance('reject')}
+                            disabled={isSubmitting}
+                            className="px-3 py-1 rounded-full text-xs font-semibold text-rose-700 bg-white border border-rose-200 hover:bg-rose-50 cursor-pointer"
+                          >
+                            Reject
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRespondAdvance('accept')}
+                            disabled={isSubmitting}
+                            className="px-3.5 py-1 rounded-full text-xs font-bold text-white bg-emerald-800 hover:bg-emerald-900 shadow-xs cursor-pointer"
+                          >
+                            Accept Revised Advance
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* DYNAMIC RENT CALCULATION & LENDER PROPOSALS (Sections 3 & 4) */}
+                <div className="p-4 rounded-3xl bg-white border border-stone-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-stone-900 text-xs sm:text-sm">
+                        Verified Duration & Dynamic Rent Calculation
+                      </h4>
+                      <p className="text-[11px] text-stone-500">
+                        Planned: {s.duration_days} day(s) • Actual Verified: {s.actual_duration_display || `${s.duration_days} day(s)`}
+                      </p>
+                    </div>
+
+                    {isLender && !isProposingRentAdj && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsProposingRentAdj(true)
+                          setProposedRentAmount(s.final_agreed_rent || s.agreed_base_rent)
+                        }}
+                        className="px-3 py-1.5 rounded-full text-xs font-semibold text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 shadow-2xs transition-all cursor-pointer"
+                      >
+                        Propose Adjusted Rent
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                    <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80">
+                      <span className="text-[10px] uppercase font-mono text-stone-400 block font-bold">Original Rent Estimate</span>
+                      <span className="font-extrabold text-stone-900 text-sm">₹{s.original_rent_estimate || s.agreed_base_rent}</span>
+                      <span className="text-[10px] text-stone-500 block">Snapshot agreed rate</span>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/80">
+                      <span className="text-[10px] uppercase font-mono text-stone-400 block font-bold">System Calculated Rent</span>
+                      <span className="font-extrabold text-stone-900 text-sm">₹{s.system_calculated_rent || s.agreed_base_rent}</span>
+                      <span className="text-[10px] text-stone-500 block">Based on verified timestamps</span>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-200 text-emerald-950">
+                      <span className="text-[10px] uppercase font-mono text-emerald-700 block font-bold">Final Agreed Rent</span>
+                      <span className="font-extrabold text-emerald-900 text-sm">₹{s.final_agreed_rent || s.agreed_base_rent}</span>
+                      <span className="text-[10px] text-emerald-700 block capitalize">Terms: {(s.rent_status_label || 'calculated').replace('_', ' ')}</span>
+                    </div>
+                  </div>
+
+                  {/* Lender Proposed Rent Form */}
+                  {isProposingRentAdj && (
+                    <form onSubmit={handleProposeRentAdjSubmit} className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-3 animate-in fade-in">
+                      <div className="flex items-center justify-between pb-1 border-b border-stone-200">
+                        <span className="text-xs font-bold text-stone-900">
+                          Propose Custom Final Rent to Borrower
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsProposingRentAdj(false)}
+                          className="text-stone-400 hover:text-stone-600 text-xs font-semibold cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <label className="block text-stone-600 font-medium mb-1">
+                            Lender Proposed Rent (₹)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            required
+                            value={proposedRentAmount}
+                            onChange={(e) => setProposedRentAmount(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-stone-200 text-stone-800 font-bold focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-stone-600 font-medium mb-1">
+                            Reason for Adjustment
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={proposedRentReason}
+                            onChange={(e) => setProposedRentReason(e.target.value)}
+                            placeholder="e.g. Returned 2 hours early, offering discount..."
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-stone-200 text-stone-800 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsProposingRentAdj(false)}
+                          className="px-3 py-1 rounded text-xs font-semibold text-stone-600 hover:bg-stone-100 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isSubmitting}
+                          className="px-4 py-1.5 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-xs cursor-pointer"
+                        >
+                          Submit Rent Adjustment
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Borrower Response to Proposed Rent Adjustment */}
+                  {isBorrower && s.rent_adjustment_status === 'proposed' && (
+                    <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-amber-950 block">
+                            Lender Proposed Rent: ₹{s.lender_proposed_rent}
+                          </span>
+                          <span className="text-[11px] text-amber-800">
+                            Reason: {s.rent_adjustment_reason || 'Discretionary adjustment'}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsRejectingRentAdj(true)}
+                            className="px-3 py-1 rounded-full text-xs font-semibold text-rose-700 bg-white border border-rose-200 hover:bg-rose-50 cursor-pointer"
+                          >
+                            Reject
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRespondRentAdj('accept')}
+                            disabled={isSubmitting}
+                            className="px-3.5 py-1 rounded-full text-xs font-bold text-white bg-emerald-800 hover:bg-emerald-900 shadow-xs cursor-pointer"
+                          >
+                            Accept Adjusted Rent
+                          </button>
+                        </div>
+                      </div>
+
+                      {isRejectingRentAdj && (
+                        <div className="p-3 rounded-xl bg-white border border-rose-200 space-y-2">
+                          <label className="block text-[11px] font-bold text-rose-900">
+                            Reason for rejecting proposed rent adjustment:
+                          </label>
+                          <input
+                            type="text"
+                            value={rentAdjRejectReason}
+                            onChange={(e) => setRentAdjRejectReason(e.target.value)}
+                            placeholder="e.g. Disagree with proposed rate..."
+                            className="w-full p-2 text-xs rounded-lg border border-stone-200"
+                          />
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => setIsRejectingRentAdj(false)}
+                              className="px-2 py-1 text-xs text-stone-500"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRespondRentAdj('reject')}
+                              disabled={isSubmitting}
+                              className="px-3 py-1 rounded text-xs font-bold bg-rose-700 text-white"
+                            >
+                              Confirm Rejection
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* SECTION 1: DIRECT PAYMENT DECLARATIONS */}
@@ -765,7 +1254,13 @@ export function BookingFinancialModal({
                           </label>
                           <select
                             value={adjType}
-                            onChange={(e) => setAdjType(e.target.value as any)}
+                            onChange={(e) => {
+                              const val = e.target.value as any
+                              setAdjType(val)
+                              if (val === 'late_fee') {
+                                handleFetchLateFee()
+                              }
+                            }}
                             className="w-full px-3 py-2 rounded-xl bg-white border border-stone-200 text-stone-800 font-medium focus:outline-none"
                           >
                             <option value="late_fee">Late Return Fee</option>
@@ -792,6 +1287,64 @@ export function BookingFinancialModal({
                           />
                         </div>
                       </div>
+
+                      {/* Late Fee Calculation Helper */}
+                      {adjType === 'late_fee' && (
+                        <div className="p-2.5 rounded-xl bg-amber-100/60 border border-amber-200 text-xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-amber-950 flex items-center space-x-1">
+                              <Clock className="w-3.5 h-3.5 text-amber-800" />
+                              <span>Agreed Policy Late Fee Calculator</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleFetchLateFee}
+                              disabled={isLoadingLateFee}
+                              className="text-[11px] font-semibold text-amber-900 underline hover:text-amber-950"
+                            >
+                              {isLoadingLateFee ? 'Calculating...' : 'Recalculate'}
+                            </button>
+                          </div>
+
+                          {lateFeeEstimate ? (
+                            <div className="space-y-1 text-[11px] text-amber-900">
+                              <p>
+                                <strong>Status:</strong> {lateFeeEstimate.message}
+                              </p>
+                              <div className="flex items-center justify-between pt-1">
+                                <span>Suggested Policy Fee: <strong>₹{lateFeeEstimate.suggested_late_fee}</strong></span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAdjAmount(String(lateFeeEstimate.suggested_late_fee))
+                                    setAdjReason(lateFeeEstimate.message || '')
+                                  }}
+                                  className="px-2 py-0.5 rounded-md bg-amber-800 text-white font-bold text-[10px] hover:bg-amber-900"
+                                >
+                                  Apply Suggested Fee
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-amber-800">
+                              Calculates late fee based on verified return vs agreed due time with standard 2-hour grace period.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Damage Claim Notice */}
+                      {adjType === 'damage' && (
+                        <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] text-rose-900 space-y-1">
+                          <div className="flex items-center space-x-1 font-bold">
+                            <ShieldAlert className="w-3.5 h-3.5 text-rose-700" />
+                            <span>Damage Penalty Policy</span>
+                          </div>
+                          <p>
+                            Damage penalties require a clear factual description and borrower acceptance. Disputed claims will not deduct funds automatically until mutually agreed or resolved.
+                          </p>
+                        </div>
+                      )}
 
                       <div className="text-xs">
                         <label className="block text-stone-600 font-medium mb-1">
@@ -1106,6 +1659,158 @@ export function BookingFinancialModal({
                     )}
                   </div>
                 )}
+
+                {/* SECTION 4: MUTUAL FINAL SETTLEMENT (SECTION 6 & 7) */}
+                <div className="p-4 rounded-3xl bg-white border border-stone-200/80 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="font-bold text-stone-900 text-xs sm:text-sm flex items-center space-x-1.5">
+                        <Scale className="w-4 h-4 text-[#1B3B2B]" />
+                        <span>Mutual Final Settlement Sign-Off</span>
+                      </h4>
+                      <p className="text-[11px] text-stone-500">
+                        Itemized terms agreement is distinct from direct money transfer confirmation
+                      </p>
+                    </div>
+
+                    {/* Settlement Status Badge */}
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          s.settlement_status === 'settled'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            : s.settlement_status === 'disputed'
+                            ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                            : s.settlement_status === 'agreed_payment_pending'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                            : s.settlement_status === 'payment_declared'
+                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                            : s.settlement_status === 'receipt_confirmed'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : s.settlement_status === 'awaiting_borrower_confirmation'
+                            ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                            : s.settlement_status === 'awaiting_lender_confirmation'
+                            ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                            : 'bg-stone-100 text-stone-700 border border-stone-200'
+                        }`}
+                      >
+                        {s.settlement_status_display || s.settlement_status.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Two-Party Sign-Off Status */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div
+                      className={`p-3 rounded-2xl border flex items-center justify-between ${
+                        s.borrower_agreed_settlement
+                          ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
+                          : 'bg-stone-50 border-stone-200 text-stone-700'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2">
+                        {s.borrower_agreed_settlement ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                        ) : (
+                          <Clock className="w-4 h-4 text-stone-400" />
+                        )}
+                        <div>
+                          <div className="font-bold">Borrower Sign-Off</div>
+                          <div className="text-[10px] text-stone-500 font-medium">
+                            {s.borrower_agreed_settlement ? 'Agreed to itemized terms' : 'Pending review'}
+                          </div>
+                        </div>
+                      </div>
+                      {isBorrower && !s.borrower_agreed_settlement && (
+                        <button
+                          type="button"
+                          onClick={handleSignSettlement}
+                          disabled={isSigningSettlement}
+                          className="px-3 py-1.5 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {isSigningSettlement ? 'Signing...' : 'Sign Off'}
+                        </button>
+                      )}
+                    </div>
+
+                    <div
+                      className={`p-3 rounded-2xl border flex items-center justify-between ${
+                        s.lender_agreed_settlement
+                          ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
+                          : 'bg-stone-50 border-stone-200 text-stone-700'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2">
+                        {s.lender_agreed_settlement ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                        ) : (
+                          <Clock className="w-4 h-4 text-stone-400" />
+                        )}
+                        <div>
+                          <div className="font-bold">Lender Sign-Off</div>
+                          <div className="text-[10px] text-stone-500 font-medium">
+                            {s.lender_agreed_settlement ? 'Agreed to itemized terms' : 'Pending review'}
+                          </div>
+                        </div>
+                      </div>
+                      {isLender && !s.lender_agreed_settlement && (
+                        <button
+                          type="button"
+                          onClick={handleSignSettlement}
+                          disabled={isSigningSettlement}
+                          className="px-3 py-1.5 rounded-full text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {isSigningSettlement ? 'Signing...' : 'Sign Off'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Settlement Disclaimer */}
+                  <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-[11px] text-amber-900 leading-relaxed">
+                    <strong>Mandatory Notice:</strong> CampusShare-generated transaction record. Payments and refunds are handled directly between the parties. This document records the terms and confirmations stored on CampusShare and is not independent proof of bank settlement.
+                  </div>
+                </div>
+
+                {/* SECTION 5: POST-RETURN ACTIONS (RE-LISTING & REVIEWS) */}
+                {(data.booking?.status === 'returned' || data.booking?.status === 'completed' || s.actual_return_time) && (
+                  <div className="p-4 rounded-3xl bg-stone-100/80 border border-stone-200/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-bold text-stone-900 text-xs sm:text-sm">
+                          Completed Rental Lifecycle Actions
+                        </h4>
+                        <p className="text-[11px] text-stone-500">
+                          Physical return verified — finalize re-listing and peer reviews
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2.5 pt-1">
+                      {isLender && (
+                        <button
+                          type="button"
+                          onClick={() => setIsRelistModalOpen(true)}
+                          className="px-4 py-2 rounded-2xl text-xs font-bold text-white bg-[#1B3B2B] hover:bg-[#25503B] shadow-xs flex items-center space-x-1.5 cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-amber-200" />
+                          <span>Re-list Listing Choice (Yes / Edit / No)</span>
+                        </button>
+                      )}
+
+                      {isBorrower && (
+                        <button
+                          type="button"
+                          onClick={() => setIsReviewModalOpen(true)}
+                          className="px-4 py-2 rounded-2xl text-xs font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 border border-amber-300 shadow-xs flex items-center space-x-1.5 cursor-pointer"
+                        >
+                          <Star className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
+                          <span>Write Reviews (Product & Lender)</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </>
             ) : null}
           </div>
@@ -1117,6 +1822,28 @@ export function BookingFinancialModal({
         bookingId={bookingId}
         isOpen={isBillOpen}
         onClose={() => setIsBillOpen(false)}
+      />
+
+      {/* Re-listing Choice Modal (Section 9) */}
+      <RelistChoiceModal
+        booking={data?.booking || initialBooking || null}
+        isOpen={isRelistModalOpen}
+        onClose={() => setIsRelistModalOpen(false)}
+        onRelisted={() => {
+          loadFinancials()
+          onUpdated?.()
+        }}
+      />
+
+      {/* Reviews Modal (Section 10) */}
+      <ReviewModal
+        booking={data?.booking || initialBooking || null}
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        onReviewSubmitted={() => {
+          loadFinancials()
+          onUpdated?.()
+        }}
       />
     </>
   )

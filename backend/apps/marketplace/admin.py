@@ -13,6 +13,7 @@ from .models import (
     Notification,
     Conversation,
     Message,
+    Review,
 )
 
 
@@ -215,3 +216,27 @@ class ConversationAdmin(admin.ModelAdmin):
     )
     readonly_fields = ('created_at', 'updated_at', 'last_message_at')
     inlines = [MessageInline]
+
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'booking',
+        'reviewer',
+        'review_type',
+        'target_listing',
+        'target_lender',
+        'rating',
+        'is_moderated',
+        'created_at',
+    )
+    list_filter = ('review_type', 'rating', 'is_moderated')
+    search_fields = (
+        'reviewer__full_name',
+        'reviewer__college_email',
+        'comment',
+        'target_listing__title',
+    )
+    readonly_fields = ('created_at', 'updated_at')
+

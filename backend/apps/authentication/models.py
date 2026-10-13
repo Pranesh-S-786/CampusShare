@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 import secrets
 from django.db import models
 from django.contrib.auth.models import User
@@ -90,6 +91,32 @@ class StudentProfile(models.Model):
     major = models.CharField(max_length=150, blank=True)
     student_id_number = models.CharField(max_length=60, blank=True)
     bio = models.TextField(max_length=600, blank=True)
+
+    # Dynamic Trust Score & Rental History
+    trust_score = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Backend-managed 0-100 trust score computed from verified rental history"
+    )
+    trust_status = models.CharField(
+        max_length=50,
+        default='insufficient_history',
+        help_text="Status label: 'insufficient_history', 'good', 'excellent', etc."
+    )
+    completed_rentals_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Count of successfully returned/completed rentals as borrower or lender"
+    )
+    lender_average_rating = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Average rating (1.00 - 5.00) from borrower reviews of this lender"
+    )
+    lender_review_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of eligible reviews received as a lender"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -1,23 +1,112 @@
-from decimal import Decimal
-from typing import Dict, Any, List
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Dict, Any, List, Tuple
 from django.utils import timezone
 from .models import Booking, PaymentRecord, SettlementAdjustment, DepositRefund
 
 
+DISCLAIMER_TEXT = (
+    "CampusShare-generated transaction record. Payments and refunds are handled directly between the "
+    "parties. This document records the terms and confirmations stored on CampusShare and is not "
+    "independent proof of bank settlement."
+)
+
+
+def check_payment_prerequisites_for_pickup(booking: Booking) -> Tuple[bool, str]:
+    """
+    Enforces Section 2 of CampusShare specification:
+    - If an advance/deposit is required, the agreed amount and BOTH required
+      payment declaration (by borrower) and receipt confirmation (by lender) must be satisfied
+      before pickup QR generation or verification.
+    - If no advance is required, do NOT introduce an unnecessary payment-confirmation requirement.
+    - If revised advance negotiation is pending, pickup is blocked until resolved.
+    - Active disputes on payments or adjustments block pickup.
+    """
+    # 1. Check for active payment disputes
+    if booking.payments.filter(status='disputed').exists():
+        return False, (
+            "Cannot proceed with pickup: There is a disputed payment declaration for this booking. "
+            "The lender and borrower must resolve payment discrepancies before handover."
+        )
+
+    # 2. Check for active adjustment disputes
+    if booking.adjustments.filter(status='disputed').exists():
+        return False, (
+            "Cannot proceed with pickup: There is an active disputed adjustment on this booking."
+        )
+
+    # 3. Check for pending advance negotiation
+    if getattr(booking, 'advance_negotiation_status', 'agreed') == 'proposed':
+        return False, (
+            "Cannot proceed with pickup: A revised advance payment proposal is currently under negotiation. "
+            "Both borrower and lender must agree to the revised amount before item handover."
+        )
+
+    # 4. Determine required advance / deposit
+    agreed_advance = booking.agreed_advance_amount if booking.agreed_advance_amount is not None else (
+        booking.snapshot_deposit_amount or Decimal('0.00')
+    )
+
+    # If NO advance is required, do not block pickup!
+    if agreed_advance <= Decimal('0.00'):
+        return True, ""
+
+    # When advance is required: check declarations and confirmations
+    deposit_payments = booking.payments.filter(purpose__in=['deposit', 'rent'])
+    confirmed_total = sum(
+        (p.amount for p in deposit_payments if p.status == 'confirmed'),
+        Decimal('0.00')
+    )
+
+    if confirmed_total >= agreed_advance:
+        return True, ""
+
+    # Check if borrower declared but lender has not confirmed
+    declared_total = sum(
+        (p.amount for p in deposit_payments if p.status in ['declared', 'confirmed']),
+        Decimal('0.00')
+    )
+
+    if declared_total >= agreed_advance:
+        return False, (
+            f"Cannot proceed with pickup: Borrower declared advance payment of ₹{declared_total}, "
+            f"but lender receipt confirmation is pending. The lender must confirm receipt before pickup."
+        )
+
+    return False, (
+        f"Cannot proceed with pickup: An advance/deposit of ₹{agreed_advance} is required. "
+        f"The borrower must declare direct payment to the lender and the lender must confirm receipt "
+        f"before item handover."
+    )
+
+
 def get_booking_financial_summary(booking: Booking) -> Dict[str, Any]:
     """
-    Computes a comprehensive, decimal-precise financial summary for a booking.
-    Calculates agreed amounts, declared payments, confirmed receipts,
-    disputed amounts, approved adjustments/deductions, and net deposit refund.
+    Generates the authoritative, decimal-precise 17-item dynamic itemized bill
+    and settlement record specified in Sections 6 & 7 of the CampusShare specification.
     """
     currency = booking.currency or 'INR'
-    base_rent = booking.calculated_total_rent or Decimal('0.00')
-    agreed_deposit = booking.snapshot_deposit_amount or Decimal('0.00')
-    total_upfront = booking.total_due_upfront or (base_rent + agreed_deposit)
+    original_rent_estimate = booking.calculated_total_rent or Decimal('0.00')
 
-    # Fetch all payment records for this booking
+    # 1. Authoritative Agreed Advance / Deposit
+    agreed_deposit = booking.agreed_advance_amount if booking.agreed_advance_amount is not None else (
+        booking.snapshot_deposit_amount or Decimal('0.00')
+    )
+
+    # 2. Authoritative Final Rent Determination (Section 3 & 4)
+    if getattr(booking, 'rent_adjustment_status', 'none') == 'accepted' and booking.lender_proposed_rent is not None:
+        final_rent = booking.lender_proposed_rent
+        rent_status_label = 'mutually_adjusted'
+    elif booking.actual_rent_calculated is not None:
+        final_rent = booking.actual_rent_calculated
+        rent_status_label = 'system_calculated'
+    else:
+        final_rent = original_rent_estimate
+        rent_status_label = 'original_estimate'
+
+    total_upfront = final_rent + agreed_deposit
+
+    # 3. Payments breakdown
     payments = booking.payments.all()
-    
     rent_declared = Decimal('0.00')
     rent_confirmed = Decimal('0.00')
     rent_disputed = Decimal('0.00')
@@ -56,37 +145,72 @@ def get_booking_financial_summary(booking: Booking) -> Dict[str, Any]:
 
     total_declared_paid = rent_declared + deposit_declared + other_declared
     total_confirmed_received = rent_confirmed + deposit_confirmed + other_confirmed
-    total_disputed = rent_disputed + deposit_disputed + other_disputed
+    total_disputed_payments = rent_disputed + deposit_disputed + other_disputed
 
-    # Adjustments (deductions / extra charges)
+    # 4. Penalties & Adjustments Breakdown (Sections 4 & 5)
     adjustments = booking.adjustments.all()
-    approved_deductions = Decimal('0.00')
-    proposed_adjustments = Decimal('0.00')
-    disputed_adjustments = Decimal('0.00')
+    accepted_late_fees = Decimal('0.00')
+    accepted_damage_fees = Decimal('0.00')
+    other_accepted_adjustments = Decimal('0.00')
 
+    proposed_adjustments_total = Decimal('0.00')
+    disputed_adjustments_total = Decimal('0.00')
+
+    adjustment_items = []
     for adj in adjustments:
         amt = adj.amount or Decimal('0.00')
         if adj.status == 'accepted':
-            approved_deductions += amt
+            if adj.adjustment_type == 'late_fee':
+                accepted_late_fees += amt
+            elif adj.adjustment_type == 'damage':
+                accepted_damage_fees += amt
+            else:
+                other_accepted_adjustments += amt
         elif adj.status == 'proposed':
-            proposed_adjustments += amt
+            proposed_adjustments_total += amt
         elif adj.status == 'disputed':
-            disputed_adjustments += amt
+            disputed_adjustments_total += amt
 
-    # Net refundable deposit balance
-    # Cannot exceed deposit amount and cannot be negative
-    if agreed_deposit > Decimal('0.00'):
-        net_refundable_deposit = max(agreed_deposit - approved_deductions, Decimal('0.00'))
+        adjustment_items.append({
+            'id': adj.id,
+            'type': adj.adjustment_type,
+            'type_display': adj.get_adjustment_type_display(),
+            'amount': str(amt),
+            'reason': adj.reason,
+            'description': adj.description,
+            'evidence_url': adj.evidence_url,
+            'status': adj.status,
+            'proposed_by_name': adj.proposed_by.full_name,
+            'response_note': adj.response_note,
+        })
+
+    total_accepted_penalties = accepted_late_fees + accepted_damage_fees + other_accepted_adjustments
+
+    # 5. Authoritative Final Net Settlement Reconciliation (Section 6)
+    # Total financial obligations of the borrower for this rental
+    total_obligations = final_rent + total_accepted_penalties
+
+    # Total confirmed money transferred by borrower to lender
+    total_confirmed_from_borrower = total_confirmed_received
+
+    # Calculate net balance
+    if total_confirmed_from_borrower > total_obligations:
+        net_lender_owes_borrower = total_confirmed_from_borrower - total_obligations
+        net_borrower_owes_lender = Decimal('0.00')
+    elif total_obligations > total_confirmed_from_borrower:
+        net_borrower_owes_lender = total_obligations - total_confirmed_from_borrower
+        net_lender_owes_borrower = Decimal('0.00')
     else:
-        net_refundable_deposit = Decimal('0.00')
+        net_lender_owes_borrower = Decimal('0.00')
+        net_borrower_owes_lender = Decimal('0.00')
 
-    # Deposit refund record
+    # 6. Refund Tracking (DepositRefund model)
     refund_obj = getattr(booking, 'deposit_refund', None)
-    refund_status = 'not_applicable' if agreed_deposit == Decimal('0.00') else 'pending_return'
+    refund_status = 'not_applicable'
     refund_declared_amount = Decimal('0.00')
     refund_confirmed_amount = Decimal('0.00')
 
-    if booking.status in ['returned', 'completed'] and agreed_deposit > Decimal('0.00'):
+    if net_lender_owes_borrower > Decimal('0.00') or (agreed_deposit > Decimal('0.00') and booking.status in ['returned', 'completed']):
         if refund_obj:
             refund_status = refund_obj.status
             if refund_obj.status in ['declared', 'confirmed']:
@@ -96,23 +220,52 @@ def get_booking_financial_summary(booking: Booking) -> Dict[str, Any]:
         else:
             refund_status = 'pending_declaration'
 
-    # Determine overall settlement status
-    has_disputes = (total_disputed > 0) or (disputed_adjustments > 0) or (refund_obj and refund_obj.status == 'disputed')
+    # 7. Settlement Sign-Off & State Machine (Section 6)
+    has_disputes = (
+        (total_disputed_payments > Decimal('0.00')) or
+        (disputed_adjustments_total > Decimal('0.00')) or
+        (refund_obj and refund_obj.status == 'disputed')
+    )
+
+    borrower_agreed = getattr(booking, 'settlement_agreed_by_borrower', False)
+    lender_agreed = getattr(booking, 'settlement_agreed_by_lender', False)
+    is_mutually_agreed = borrower_agreed and lender_agreed
+
     if has_disputes:
         settlement_status = 'disputed'
     elif booking.status in ['completed']:
-        if agreed_deposit > Decimal('0.00'):
+        if net_lender_owes_borrower > Decimal('0.00'):
             if refund_obj and refund_obj.status == 'confirmed':
                 settlement_status = 'settled'
             else:
-                settlement_status = 'pending_settlement'
+                settlement_status = 'agreed_payment_pending'
+        elif net_borrower_owes_lender > Decimal('0.00'):
+            balance_confirmed = (total_confirmed_from_borrower >= total_obligations)
+            settlement_status = 'settled' if balance_confirmed else 'agreed_payment_pending'
         else:
             settlement_status = 'settled'
     elif booking.status == 'returned':
-        if agreed_deposit > Decimal('0.00') and (not refund_obj or refund_obj.status != 'confirmed'):
-            settlement_status = 'pending_settlement'
+        if not is_mutually_agreed:
+            if borrower_agreed and not lender_agreed:
+                settlement_status = 'awaiting_lender_confirmation'
+            elif lender_agreed and not borrower_agreed:
+                settlement_status = 'awaiting_borrower_confirmation'
+            else:
+                settlement_status = 'settlement_proposed'
         else:
-            settlement_status = 'ready_for_completion'
+            # Both parties agree to the bill terms!
+            # Check if money transfer is still pending
+            if net_lender_owes_borrower > Decimal('0.00'):
+                if refund_obj and refund_obj.status == 'confirmed':
+                    settlement_status = 'settled'
+                elif refund_obj and refund_obj.status == 'declared':
+                    settlement_status = 'payment_declared'
+                else:
+                    settlement_status = 'agreed_payment_pending'
+            elif net_borrower_owes_lender > Decimal('0.00'):
+                settlement_status = 'agreed_payment_pending'
+            else:
+                settlement_status = 'settled'
     elif booking.status == 'active':
         settlement_status = 'active_rental'
     elif booking.status == 'accepted':
@@ -122,87 +275,123 @@ def get_booking_financial_summary(booking: Booking) -> Dict[str, Any]:
 
     invoice_number = f"CS-BILL-{booking.id}-{booking.created_at.year}"
 
-    disclaimer = (
-        "CampusShare-generated transaction record. Payments and refunds are handled directly between "
-        "the parties. This document records the terms and confirmations stored on CampusShare and is not "
-        "independent proof of bank settlement."
-    )
+    # Build history of revisions and status changes
+    bill_history = list(booking.status_history or [])
+
+    net_refundable_deposit = max(Decimal('0.00'), agreed_deposit - total_accepted_penalties)
 
     return {
+        # 1. Booking reference and product details
         'invoice_number': invoice_number,
         'booking_id': booking.id,
+        'listing_id': booking.listing_id,
+        'listing_title': booking.listing.title,
         'currency': currency,
         'booking_type': booking.booking_type,
-        'listing_title': booking.listing.title,
-        'start_date': booking.start_date.isoformat(),
-        'end_date': booking.end_date.isoformat() if booking.end_date else booking.start_date.isoformat(),
-        'duration_days': booking.duration_days,
-        'rental_rate': str(booking.snapshot_price),
+        'borrower_name': booking.borrower.full_name,
+        'borrower_email': booking.borrower.college_email,
+        'lender_name': booking.lender.full_name,
+        'lender_email': booking.lender.college_email,
+
+        # 2. Agreed rental rate and billing unit
+        'agreed_rental_rate': str(booking.snapshot_price),
         'pricing_unit': booking.snapshot_pricing_unit,
-        
-        # Agreed terms
-        'agreed_base_rent': str(base_rent),
-        'agreed_deposit': str(agreed_deposit),
-        'total_due_upfront': str(total_upfront),
 
-        # Rent breakdown
-        'rent_declared': str(rent_declared),
-        'rent_confirmed': str(rent_confirmed),
-        'rent_disputed': str(rent_disputed),
-        'rent_outstanding': str(max(base_rent - rent_confirmed, Decimal('0.00'))),
-        'is_rent_settled': (rent_confirmed >= base_rent),
+        # 3. Planned rental start and end
+        'planned_start_date': booking.start_date.isoformat(),
+        'planned_end_date': booking.end_date.isoformat() if booking.end_date else booking.start_date.isoformat(),
+        'planned_duration_days': booking.duration_days,
 
-        # Deposit breakdown
-        'deposit_declared': str(deposit_declared),
-        'deposit_confirmed': str(deposit_confirmed),
-        'deposit_disputed': str(deposit_disputed),
-        'deposit_outstanding': str(max(agreed_deposit - deposit_confirmed, Decimal('0.00'))),
-        'is_deposit_confirmed': (deposit_confirmed >= agreed_deposit) if agreed_deposit > Decimal('0.00') else True,
+        # 4. Verified pickup and actual return timestamps
+        'pickup_confirmed_at': booking.pickup_confirmed_at.isoformat() if booking.pickup_confirmed_at else None,
+        'return_confirmed_at': booking.return_confirmed_at.isoformat() if booking.return_confirmed_at else None,
 
-        # Overall payment totals
-        'total_declared_paid': str(total_declared_paid),
+        # 5. Actual rental duration
+        'actual_duration_display': getattr(booking, 'actual_duration_display', '') or f"{booking.duration_days} day(s)",
+
+        # 6. Original rent estimate
+        'original_rent_estimate': str(original_rent_estimate),
+
+        # 7. System-calculated final rent
+        'system_calculated_rent': str(booking.actual_rent_calculated if booking.actual_rent_calculated is not None else original_rent_estimate),
+
+        # 8. Accepted rent adjustment and reason
+        'rent_adjustment_status': getattr(booking, 'rent_adjustment_status', 'none'),
+        'lender_proposed_rent': str(booking.lender_proposed_rent) if booking.lender_proposed_rent is not None else None,
+        'rent_adjustment_reason': getattr(booking, 'rent_adjustment_reason', ''),
+        'final_agreed_rent': str(final_rent),
+        'rent_status_label': rent_status_label,
+
+        # 9. Advance/deposit agreed, declared paid, and receipt-confirmed
+        'agreed_advance_deposit': str(agreed_deposit),
+        'advance_negotiation_status': getattr(booking, 'advance_negotiation_status', 'agreed'),
+        'advance_declared_paid': str(deposit_declared),
+        'advance_confirmed_received': str(deposit_confirmed),
+        'advance_disputed': str(deposit_disputed),
+        'is_advance_confirmed': (deposit_confirmed >= agreed_deposit) if agreed_deposit > Decimal('0.00') else True,
+
+        # 10. Late penalty, calculation, and acceptance status
+        'accepted_late_fees': str(accepted_late_fees),
+
+        # 11. Damage penalty, reason, evidence reference, and acceptance status
+        'accepted_damage_fees': str(accepted_damage_fees),
+
+        # 12. Other supported adjustments
+        'other_accepted_adjustments': str(other_accepted_adjustments),
+        'total_accepted_penalties': str(total_accepted_penalties),
+        'adjustment_items': adjustment_items,
+        'proposed_adjustments_total': str(proposed_adjustments_total),
+        'disputed_adjustments_total': str(disputed_adjustments_total),
+
+        # 13. Final net amount owed by each party
+        'total_obligations': str(total_obligations),
         'total_confirmed_received': str(total_confirmed_received),
-        'total_disputed': str(total_disputed),
-        'total_outstanding_upfront': str(max(total_upfront - total_confirmed_received, Decimal('0.00'))),
+        'net_lender_owes_borrower': str(net_lender_owes_borrower),
+        'net_borrower_owes_lender': str(net_borrower_owes_lender),
 
-        # Adjustments breakdown
-        'approved_deductions': str(approved_deductions),
-        'proposed_adjustments': str(proposed_adjustments),
-        'disputed_adjustments': str(disputed_adjustments),
-        'has_disputed_adjustments': disputed_adjustments > Decimal('0.00'),
-
-        # Net deposit refund calculation
+        # 14. Deposit/advance refund amount and status
         'net_refundable_deposit': str(net_refundable_deposit),
         'refund_status': refund_status,
         'refund_declared_amount': str(refund_declared_amount),
         'refund_confirmed_amount': str(refund_confirmed_amount),
 
-        # Settlement state
+        # 15. Settlement agreement status
+        'settlement_agreed_by_borrower': borrower_agreed,
+        'settlement_agreed_by_lender': lender_agreed,
+        'is_mutually_agreed': is_mutually_agreed,
         'settlement_status': settlement_status,
+
+        # 16. Individual payment/refund confirmation statuses
+        'rent_confirmed': str(rent_confirmed),
+        'deposit_confirmed': str(deposit_confirmed),
+        'total_declared_paid': str(total_declared_paid),
+        'total_disputed': str(total_disputed_payments),
         'has_disputes': has_disputes,
-        'disclaimer': disclaimer,
+
+        # 17. Bill revision history and relevant timestamps
+        'bill_history': bill_history,
+        'created_at': booking.created_at.isoformat(),
+        'updated_at': booking.updated_at.isoformat(),
+
+        # Backward-compatible fields
+        'agreed_base_rent': str(original_rent_estimate),
+        'agreed_deposit': str(agreed_deposit),
+        'total_due_upfront': str(total_upfront),
+        'rent_declared': str(rent_declared),
+        'rent_disputed': str(rent_disputed),
+        'rent_outstanding': str(max(final_rent - rent_confirmed, Decimal('0.00'))),
+        'is_rent_settled': (rent_confirmed >= final_rent),
+        'deposit_declared': str(deposit_declared),
+        'deposit_disputed': str(deposit_disputed),
+        'deposit_outstanding': str(max(agreed_deposit - deposit_confirmed, Decimal('0.00'))),
+        'approved_deductions': str(total_accepted_penalties),
+        'proposed_adjustments': str(proposed_adjustments_total),
+        'disputed_adjustments': str(disputed_adjustments_total),
+        'has_disputed_adjustments': (disputed_adjustments_total > Decimal('0.00')),
+        'other_declared': str(other_declared),
+        'other_confirmed': str(other_confirmed),
+        'other_disputed': str(other_disputed),
+
+        # Disclaimer
+        'disclaimer': DISCLAIMER_TEXT,
     }
-
-
-def check_payment_prerequisites_for_pickup(booking: Booking) -> tuple[bool, str]:
-    """
-    Validates whether the booking satisfies financial prerequisites before pickup.
-    - If any payment has a pending dispute, blocks pickup.
-    - If rent/deposit is required, checks whether borrower declared payment and warns if unconfirmed.
-    Returns (can_proceed: bool, error_or_warning_message: str).
-    """
-    # Check for active disputed payments
-    disputed_payments = booking.payments.filter(status='disputed')
-    if disputed_payments.exists():
-        return False, (
-            "Cannot proceed with pickup: There is a disputed payment declaration for this booking. "
-            "The lender and borrower must resolve payment discrepancies before handover."
-        )
-
-    # Check for disputed adjustments
-    if booking.adjustments.filter(status='disputed').exists():
-        return False, (
-            "Cannot proceed with pickup: There is an active disputed adjustment on this booking."
-        )
-
-    return True, ""

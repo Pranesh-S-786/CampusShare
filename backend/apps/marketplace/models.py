@@ -1,5 +1,6 @@
 from decimal import Decimal
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from apps.authentication.models import StudentProfile, College
 
@@ -89,6 +90,11 @@ class Listing(models.Model):
     is_available = models.BooleanField(default=True)
     is_visible = models.BooleanField(default=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+
+    # Borrower Reviews & Ratings Summary
+    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=Decimal('0.00'))
+    review_count = models.PositiveIntegerField(default=0)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -195,6 +201,92 @@ class Booking(models.Model):
     # Handover timestamps
     pickup_confirmed_at = models.DateTimeField(null=True, blank=True)
     return_confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    # Mutual Advance Payment Negotiation & Confirmation (Section 2)
+    agreed_advance_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Mutually agreed advance/deposit amount (defaults to snapshot_deposit_amount)"
+    )
+    advance_negotiation_status = models.CharField(
+        max_length=20,
+        default='agreed',
+        choices=[
+            ('agreed', 'Agreed'),
+            ('proposed', 'Proposed / In Negotiation'),
+            ('rejected', 'Rejected'),
+        ]
+    )
+    advance_proposal_notes = models.TextField(blank=True)
+
+    # Actual Verified Duration & Dynamic Rent Calculation (Section 3)
+    actual_rent_calculated = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Authoritative system-calculated rent based on verified pickup and return timestamps"
+    )
+    actual_duration_display = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Human-readable actual duration e.g. '2 days (48 hrs)'"
+    )
+
+    # Lender-Proposed Rent Adjustments (Section 4)
+    lender_proposed_rent = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Lender-proposed final rent after actual calculation"
+    )
+    rent_adjustment_status = models.CharField(
+        max_length=20,
+        default='none',
+        choices=[
+            ('none', 'No Adjustment'),
+            ('proposed', 'Proposed by Lender'),
+            ('accepted', 'Accepted by Borrower'),
+            ('rejected', 'Rejected by Borrower'),
+        ]
+    )
+    rent_adjustment_reason = models.CharField(max_length=255, blank=True)
+    rent_adjustment_rejected_reason = models.CharField(max_length=255, blank=True)
+
+    # Mutual Final Settlement Agreement (Section 6)
+    settlement_agreed_by_borrower = models.BooleanField(default=False)
+    settlement_agreed_by_lender = models.BooleanField(default=False)
+    settlement_status = models.CharField(
+        max_length=35,
+        default='pending',
+        choices=[
+            ('pending', 'Pending Return'),
+            ('settlement_proposed', 'Settlement Proposed'),
+            ('awaiting_borrower', 'Awaiting Borrower Agreement'),
+            ('awaiting_lender', 'Awaiting Lender Agreement'),
+            ('disputed', 'Disputed'),
+            ('agreed_payment_pending', 'Agreed (Direct Payment/Refund Pending)'),
+            ('payment_declared', 'Payment/Refund Declared'),
+            ('settled', 'Settled & Completed'),
+        ]
+    )
+    settlement_agreed_at = models.DateTimeField(null=True, blank=True)
+
+    # Lender Re-listing Choice After Return (Section 9)
+    relist_prompted = models.BooleanField(default=False)
+    relist_choice = models.CharField(
+        max_length=20,
+        default='none',
+        choices=[
+            ('none', 'Not Decided'),
+            ('relist', 'Relisted'),
+            ('edit', 'Relisted After Editing'),
+            ('archive', 'Archived / Unlisted'),
+        ]
+    )
 
     # Communication
     borrower_message = models.TextField(blank=True)
@@ -640,6 +732,17 @@ class Notification(models.Model):
         ('adjustment_resolved', 'Adjustment Resolved'),
         ('refund_declared', 'Deposit Refund Declared'),
         ('refund_confirmed', 'Deposit Refund Confirmed'),
+        ('advance_declared', 'Advance Payment Declared'),
+        ('advance_confirmed', 'Advance Payment Confirmed'),
+        ('advance_rejected', 'Advance Payment Rejected'),
+        ('advance_proposed', 'Advance Revision Proposed'),
+        ('rent_adj_proposed', 'Rent Adjustment Proposed'),
+        ('rent_adj_resolved', 'Rent Adjustment Resolved'),
+        ('settlement_proposed', 'Settlement Proposed'),
+        ('settlement_agreed', 'Settlement Agreed'),
+        ('relist_prompt', 'Relist Product Option'),
+        ('review_requested', 'Review Requested'),
+        ('return_overdue', 'Rental Return Overdue'),
         ('wanted_response', 'Wanted Item Response'),
         ('wanted_response_status', 'Wanted Response Status'),
         ('new_message', 'New Message'),
@@ -801,6 +904,80 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message from {self.sender.user.username} at {self.created_at}"
+
+
+# ========================================================
+# BORROWER RATINGS & REVIEWS (Section 10)
+# Verified 1-5 star reviews for listings and lenders.
+# Enforces strictly 1 product review and 1 lender review per eligible returned rental.
+# ========================================================
+
+class Review(models.Model):
+    """
+    Genuine borrower ratings and reviews for listings and peer lenders.
+    Only submitted after verified item return.
+    """
+    REVIEW_TYPE_CHOICES = [
+        ('product', 'Product / Item Review'),
+        ('lender', 'Lender / Peer Review'),
+    ]
+
+    booking = models.ForeignKey(
+        Booking,
+        on_delete=models.CASCADE,
+        related_name='reviews'
+    )
+    reviewer = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name='reviews_written'
+    )
+    review_type = models.CharField(max_length=10, choices=REVIEW_TYPE_CHOICES)
+    target_listing = models.ForeignKey(
+        Listing,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='product_reviews'
+    )
+    target_lender = models.ForeignKey(
+        StudentProfile,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='lender_reviews_received'
+    )
+
+    rating = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="1 to 5 star rating"
+    )
+    comment = models.TextField(max_length=1000, blank=True)
+    is_moderated = models.BooleanField(default=False)
+    moderation_notes = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['booking', 'review_type'],
+                name='unique_review_per_booking_and_type'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['target_listing', '-created_at']),
+            models.Index(fields=['target_lender', '-created_at']),
+        ]
+
+    def __str__(self):
+        target = self.target_listing.title if self.review_type == 'product' and self.target_listing else (
+            self.target_lender.user.username if self.target_lender else 'Unknown'
+        )
+        return f"{self.get_review_type_display()} ({self.rating}★) by {self.reviewer.user.username} for {target}"
+
 
 
 
