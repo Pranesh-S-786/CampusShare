@@ -120,11 +120,34 @@ const getApiBaseUrl = (): string => {
         return 'https://campusshare-dimx.onrender.com/api'
       }
     }
+    // If accessing from a local network IP, connect to port 8000 on that same IP
+    if (host.startsWith('192.168.') || host.startsWith('10.') || /^172\.(1[6-9]|2\d|3[01])\./.test(host)) {
+      return `http://${host}:8000/api`
+    }
   }
   return envUrl || 'http://127.0.0.1:8000/api'
 }
 
-const API_BASE_URL = getApiBaseUrl()
+export const API_BASE_URL = getApiBaseUrl()
+
+/**
+ * Resilient fetch wrapper with automatic retry for cold starts and transient network glitches.
+ */
+export async function safeFetch(url: string, init?: RequestInit, retries = 2): Promise<Response> {
+  let attempt = 0
+  while (attempt <= retries) {
+    try {
+      return await fetch(url, init)
+    } catch (err: unknown) {
+      attempt++
+      if (attempt > retries) {
+        throw new Error('Unable to connect to campus server. Please check your connection or retry.')
+      }
+      await new Promise(resolve => setTimeout(resolve, attempt * 600))
+    }
+  }
+  return fetch(url, init)
+}
 
 export function resolveMediaUrl(url: string | null | undefined): string {
   if (!url) return ''
@@ -905,7 +928,7 @@ export async function getWantedRequests(filters?: {
 
   const queryString = params.toString()
   const url = `${API_BASE_URL}/marketplace/wanted-requests/${queryString ? `?${queryString}` : ''}`
-  const res = await fetch(url, {
+  const res = await safeFetch(url, {
     method: 'GET',
     headers: getAuthHeaders(),
   })
@@ -913,7 +936,7 @@ export async function getWantedRequests(filters?: {
 }
 
 export async function getWantedRequestDetail(id: number): Promise<WantedItemRequest> {
-  const res = await fetch(`${API_BASE_URL}/marketplace/wanted-requests/${id}/`, {
+  const res = await safeFetch(`${API_BASE_URL}/marketplace/wanted-requests/${id}/`, {
     method: 'GET',
     headers: getAuthHeaders(),
   })
@@ -923,7 +946,7 @@ export async function getWantedRequestDetail(id: number): Promise<WantedItemRequ
 export async function createWantedRequest(
   payload: WantedRequestPayload
 ): Promise<WantedItemRequest> {
-  const res = await fetch(`${API_BASE_URL}/marketplace/wanted-requests/`, {
+  const res = await safeFetch(`${API_BASE_URL}/marketplace/wanted-requests/`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
@@ -939,7 +962,7 @@ export async function respondToWantedRequest(
     offered_listing_id?: number | null
   }
 ): Promise<WantedItemResponse> {
-  const res = await fetch(`${API_BASE_URL}/marketplace/wanted-requests/${requestId}/respond/`, {
+  const res = await safeFetch(`${API_BASE_URL}/marketplace/wanted-requests/${requestId}/respond/`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
@@ -949,12 +972,12 @@ export async function respondToWantedRequest(
 
 export async function actionWantedResponse(
   responseId: number,
-  action: 'interested' | 'declined'
-): Promise<{ message: string; response: WantedItemResponse }> {
-  const res = await fetch(`${API_BASE_URL}/marketplace/wanted-responses/${responseId}/action/`, {
+  action: 'interested' | 'declined' | 'accept'
+): Promise<{ message: string; response: WantedItemResponse; conversation_id?: number }> {
+  const res = await safeFetch(`${API_BASE_URL}/marketplace/wanted-responses/${responseId}/action/`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ action }),
+    body: JSON.stringify({ action: action === 'accept' ? 'interested' : action }),
   })
   return handleResponse(res)
 }

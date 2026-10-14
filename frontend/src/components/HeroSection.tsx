@@ -88,24 +88,72 @@ export function HeroSection({
           </span>
         </div>
 
-        {/* Main Headline matching reference */}
-        <h1 className="text-[32px] xs:text-[36px] font-black tracking-tight text-stone-900 leading-[1.12] text-center">
-          Same Campus.
-          <br />
-          <span className="inline-flex items-center justify-center gap-2">
-            <span>More</span>
+        {/* Main Headline matching reference - all 4 words animated */}
+        <h1 className="text-[32px] xs:text-[36px] font-black tracking-tight text-stone-900 leading-[1.12] text-center flex flex-col items-center">
+          <span className="inline-flex items-center justify-center gap-1.5 xs:gap-2 flex-wrap">
+            <StrokeText
+              text="Same"
+              strokeColor="#1c1917"
+              fillColor="#1c1917"
+              strokeWidth={1.6}
+              drawDuration={1.1}
+              fillDelay={0.15}
+              delay={0}
+              stagger={0.03}
+              ease="power2.out"
+              trigger="mount"
+              fillMode="wipe"
+              fontSize={34}
+              fontWeight={800}
+              letterSpacing={-1}
+            />
+            <StrokeText
+              text="Campus."
+              strokeColor="#1c1917"
+              fillColor="#1c1917"
+              strokeWidth={1.6}
+              drawDuration={1.2}
+              fillDelay={0.15}
+              delay={0.12}
+              stagger={0.03}
+              ease="power2.out"
+              trigger="mount"
+              fillMode="wipe"
+              fontSize={34}
+              fontWeight={800}
+              letterSpacing={-1}
+            />
+          </span>
+          <span className="inline-flex items-center justify-center gap-1.5 xs:gap-2 flex-wrap">
+            <StrokeText
+              text="More"
+              strokeColor="#1c1917"
+              fillColor="#1c1917"
+              strokeWidth={1.6}
+              drawDuration={1.1}
+              fillDelay={0.15}
+              delay={0.24}
+              stagger={0.03}
+              ease="power2.out"
+              trigger="mount"
+              fillMode="wipe"
+              fontSize={34}
+              fontWeight={800}
+              letterSpacing={-1}
+            />
             <StrokeText
               text="Possibilities."
               strokeColor="#1B3B2B"
               fillColor="#2C6E49"
-              strokeWidth={1.8}
-              drawDuration={1.5}
+              strokeWidth={1.6}
+              drawDuration={1.3}
               fillDelay={0.2}
-              stagger={0.04}
+              delay={0.36}
+              stagger={0.035}
               ease="power2.out"
               trigger="mount"
               fillMode="wipe"
-              fontSize={36}
+              fontSize={34}
               fontWeight={800}
               letterSpacing={-1}
             />
@@ -319,25 +367,73 @@ export function HeroSection({
                 </span>
               </div>
 
-              {/* Main Headline strictly matching reference (2 lines) */}
+              {/* Main Headline strictly matching reference (2 lines, all 4 words animated) */}
               <div className="space-y-1">
-                <h1 className="text-4xl sm:text-5xl xl:text-[54px] font-extrabold tracking-tight text-stone-900 leading-[1.12]">
-                  Same Campus.
-                  <br />
-                  <span className="inline-flex items-center gap-3">
-                    <span>More</span>
+                <h1 className="text-4xl sm:text-5xl xl:text-[54px] font-extrabold tracking-tight text-stone-900 leading-[1.12] flex flex-col items-start">
+                  <span className="inline-flex items-center gap-2.5 sm:gap-3 flex-wrap">
+                    <StrokeText
+                      text="Same"
+                      strokeColor="#1c1917"
+                      fillColor="#1c1917"
+                      strokeWidth={1.8}
+                      drawDuration={1.1}
+                      fillDelay={0.15}
+                      delay={0}
+                      stagger={0.03}
+                      ease="power2.out"
+                      trigger="mount"
+                      fillMode="wipe"
+                      fontSize={52}
+                      fontWeight={800}
+                      letterSpacing={-1}
+                    />
+                    <StrokeText
+                      text="Campus."
+                      strokeColor="#1c1917"
+                      fillColor="#1c1917"
+                      strokeWidth={1.8}
+                      drawDuration={1.2}
+                      fillDelay={0.15}
+                      delay={0.12}
+                      stagger={0.03}
+                      ease="power2.out"
+                      trigger="mount"
+                      fillMode="wipe"
+                      fontSize={52}
+                      fontWeight={800}
+                      letterSpacing={-1}
+                    />
+                  </span>
+                  <span className="inline-flex items-center gap-2.5 sm:gap-3 flex-wrap">
+                    <StrokeText
+                      text="More"
+                      strokeColor="#1c1917"
+                      fillColor="#1c1917"
+                      strokeWidth={1.8}
+                      drawDuration={1.1}
+                      fillDelay={0.15}
+                      delay={0.24}
+                      stagger={0.03}
+                      ease="power2.out"
+                      trigger="mount"
+                      fillMode="wipe"
+                      fontSize={52}
+                      fontWeight={800}
+                      letterSpacing={-1}
+                    />
                     <StrokeText
                       text="Possibilities."
                       strokeColor="#1B3B2B"
                       fillColor="#2C6E49"
                       strokeWidth={1.8}
-                      drawDuration={1.5}
+                      drawDuration={1.4}
                       fillDelay={0.2}
-                      stagger={0.04}
+                      delay={0.36}
+                      stagger={0.035}
                       ease="power2.out"
                       trigger="mount"
                       fillMode="wipe"
-                      fontSize={54}
+                      fontSize={52}
                       fontWeight={800}
                       letterSpacing={-1}
                     />

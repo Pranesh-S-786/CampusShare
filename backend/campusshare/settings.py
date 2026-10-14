@@ -243,6 +243,8 @@ REST_FRAMEWORK = {
 
 
 # CORS Configuration for frontend-backend communication
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
@@ -256,6 +258,9 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.vercel\.app$",
     r"^http://localhost(:\d+)?$",
     r"^http://127\.0\.0\.1(:\d+)?$",
+    r"^http://192\.168\.\d+\.\d+(:\d+)?$",
+    r"^http://10\.\d+\.\d+\.\d+(:\d+)?$",
+    r"^http://172\.(1[6-9]|2\d|3[01])\.\d+\.\d+(:\d+)?$",
 ]
 
 CORS_ALLOW_CREDENTIALS = True

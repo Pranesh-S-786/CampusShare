@@ -1034,9 +1034,24 @@ class WantedItemRequestListView(APIView):
         from .models import WantedItemRequest
         from .serializers import WantedItemRequestSerializer
 
-        queryset = WantedItemRequest.objects.filter(
-            status='open'
-        ).select_related(
+        mine = request.query_params.get('mine', '').strip().lower() in ('true', '1', 'yes')
+        status_param = request.query_params.get('status', '').strip().lower()
+
+        if mine:
+            profile = getattr(request.user, 'profile', None) if request.user.is_authenticated else None
+            if profile:
+                queryset = WantedItemRequest.objects.filter(requester=profile)
+                if status_param and status_param != 'all':
+                    queryset = queryset.filter(status=status_param)
+            else:
+                queryset = WantedItemRequest.objects.none()
+        else:
+            if status_param and status_param != 'all':
+                queryset = WantedItemRequest.objects.filter(status=status_param)
+            else:
+                queryset = WantedItemRequest.objects.filter(status='open')
+
+        queryset = queryset.select_related(
             'requester', 'college', 'category', 'requester__college'
         ).prefetch_related('responses')
 
@@ -1245,17 +1260,45 @@ class WantedItemResponseActionView(APIView):
             return Response({'error': 'Only the requester can take action on this response.'}, status=status.HTTP_403_FORBIDDEN)
 
         action = request.data.get('action', '').strip().lower()
+        if action in ['accept', 'accepted', 'interested']:
+            action = 'interested'
+
         if action not in ['interested', 'declined']:
-            return Response({'error': "Action must be 'interested' or 'declined'."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': "Action must be 'interested', 'accept', or 'declined'."}, status=status.HTTP_400_BAD_REQUEST)
 
         response_obj.status = action
         response_obj.save(update_fields=['status'])
 
-        from .notification_service import notify_wanted_response_status
-        notify_wanted_response_status(response_obj, new_status=action, actor=profile)
+        conversation_id = None
+        if action == 'interested':
+            try:
+                from .models import Conversation
+                conv = Conversation.objects.filter(
+                    wanted_request=response_obj.request
+                ).filter(
+                    (Q(participant_1=profile) & Q(participant_2=response_obj.responder)) |
+                    (Q(participant_1=response_obj.responder) & Q(participant_2=profile))
+                ).first()
+                if not conv:
+                    conv = Conversation.objects.create(
+                        participant_1=profile,
+                        participant_2=response_obj.responder,
+                        wanted_request=response_obj.request
+                    )
+                conversation_id = conv.id
+            except Exception as e:
+                logger.warning(f"Could not auto-create conversation for wanted response: {e}")
+
+        try:
+            from .notification_service import notify_wanted_response_status
+            notify_wanted_response_status(response_obj, new_status=action, actor=profile)
+        except Exception as e:
+            logger.warning(f"Notification dispatch failed for wanted response status: {e}")
 
         return Response({
-            'message': f"Response status updated to {action}.",
+            'message': f"Offer successfully accepted!" if action == 'interested' else "Response marked as declined.",
+            'action': action,
+            'conversation_id': conversation_id,
             'response': WantedItemResponseSerializer(response_obj).data
         })
 

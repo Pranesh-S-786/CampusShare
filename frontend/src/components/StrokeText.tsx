@@ -17,6 +17,7 @@ export interface StrokeTextProps {
   strokeWidth?: number;
   drawDuration?: number;
   fillDelay?: number;
+  delay?: number;
   stagger?: number;
   ease?: string;
   trigger?: 'mount' | 'hover' | 'scroll' | 'loop';
@@ -36,6 +37,7 @@ export const StrokeText: React.FC<StrokeTextProps> = ({
   strokeWidth = 1.4,
   drawDuration = 1.6,
   fillDelay = 0.2,
+  delay = 0,
   stagger = 0.05,
   ease = 'power2.out',
   trigger = 'mount',
@@ -154,7 +156,8 @@ export const StrokeText: React.FC<StrokeTextProps> = ({
         paused: true,
         repeat: trigger === 'loop' ? -1 : 0,
         repeatDelay: trigger === 'loop' ? 0.9 : 0,
-        defaults: { overwrite: 'auto' }
+        defaults: { overwrite: 'auto' },
+        delay: delay || 0
       });
 
       tl.to(strokes, { strokeDashoffset: 0, duration: drawDuration, ease, stagger: staggerConfig }, 0);
@@ -209,7 +212,7 @@ export const StrokeText: React.FC<StrokeTextProps> = ({
       timeline?.kill();
       gsap.killTweensOf(targets);
     };
-  }, [box, dash, drawDuration, fillDelay, stagger, ease, trigger, fillMode, reverse]);
+  }, [box, dash, drawDuration, fillDelay, delay, stagger, ease, trigger, fillMode, reverse]);
 
   const viewBox = box ? `${box.x} ${box.y} ${box.width} ${box.height}` : `0 ${-fontSize} 600 ${fontSize * 1.3}`;
 
@@ -241,10 +244,11 @@ export const StrokeText: React.FC<StrokeTextProps> = ({
           strokeLinejoin="round"
           strokeLinecap="round"
           style={fontStyle}
+          xmlSpace="preserve"
         >
           {characters.map((char, index) => (
             <tspan data-stroke-char key={`s-${index}`}>
-              {char}
+              {char === ' ' ? '\u00A0' : char}
             </tspan>
           ))}
         </text>
@@ -256,11 +260,12 @@ export const StrokeText: React.FC<StrokeTextProps> = ({
           fill={fillColor}
           stroke="none"
           style={fontStyle}
+          xmlSpace="preserve"
           clipPath={fillMode === 'wipe' && box ? `url(#${wipeId})` : undefined}
         >
           {characters.map((char, index) => (
             <tspan data-fill-char key={`f-${index}`}>
-              {char}
+              {char === ' ' ? '\u00A0' : char}
             </tspan>
           ))}
         </text>
