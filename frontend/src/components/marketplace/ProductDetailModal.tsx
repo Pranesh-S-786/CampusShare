@@ -20,6 +20,7 @@ import {
   type MarketplaceListing,
   type Review,
   getListingReviews,
+  resolveMediaUrl,
 } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { TrustScoreModal } from './TrustScoreModal'
@@ -164,8 +165,12 @@ export function ProductDetailModal({
               <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-stone-100 border border-stone-200 shadow-2xs">
                 {activePhotoUrl ? (
                   <img
-                    src={activePhotoUrl}
+                    src={resolveMediaUrl(activePhotoUrl)}
                     alt={listing.title}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null
+                      e.currentTarget.style.display = 'none'
+                    }}
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -199,8 +204,12 @@ export function ProductDetailModal({
                       }`}
                     >
                       <img
-                        src={url}
+                        src={resolveMediaUrl(url)}
                         alt={`Photo thumbnail ${idx + 1}`}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null
+                          e.currentTarget.style.display = 'none'
+                        }}
                         className="w-full h-full object-cover"
                       />
                     </button>
@@ -323,8 +332,12 @@ export function ProductDetailModal({
             <div className="flex items-center space-x-3">
               {listing.lender.avatar_url ? (
                 <img
-                  src={listing.lender.avatar_url}
+                  src={resolveMediaUrl(listing.lender.avatar_url)}
                   alt={listing.lender.full_name}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null
+                    e.currentTarget.src = listing.lender.default_avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(listing.lender.full_name || listing.lender.username)}&background=1B3B2B&color=fff&size=200`
+                  }}
                   className="w-11 h-11 rounded-full object-cover border border-emerald-600/30"
                 />
               ) : (

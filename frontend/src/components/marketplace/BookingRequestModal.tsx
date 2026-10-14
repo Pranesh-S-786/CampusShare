@@ -15,6 +15,7 @@ import {
   type Booking,
   getBookingQuote,
   createBooking,
+  resolveMediaUrl,
 } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -179,8 +180,12 @@ export function BookingRequestModal({
             <div className="w-16 h-16 rounded-xl bg-stone-200 overflow-hidden shrink-0 border border-stone-200">
               {listing.image_url ? (
                 <img
-                  src={listing.image_url}
+                  src={resolveMediaUrl(listing.image_url)}
                   alt={listing.title}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null
+                    e.currentTarget.style.display = 'none'
+                  }}
                   className="w-full h-full object-cover"
                 />
               ) : (

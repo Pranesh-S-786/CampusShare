@@ -21,6 +21,7 @@ import {
   createMarketplaceListing,
   updateMarketplaceListing,
   uploadListingPhoto,
+  resolveMediaUrl,
 } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -605,8 +606,12 @@ export function PostItemModal({
                       className="relative aspect-square rounded-xl overflow-hidden bg-stone-100 border border-stone-200 group shadow-2xs"
                     >
                       <img
-                        src={url}
+                        src={resolveMediaUrl(url)}
                         alt={`Upload preview ${idx + 1}`}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null
+                          e.currentTarget.style.display = 'none'
+                        }}
                         className="w-full h-full object-cover"
                       />
 

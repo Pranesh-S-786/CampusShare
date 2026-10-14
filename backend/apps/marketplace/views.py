@@ -318,9 +318,10 @@ class ListingImageUploadView(APIView):
                 'storage_configured': ListingStorageService.get_config()['is_configured'],
             }, status=status.HTTP_400_BAD_REQUEST)
 
+        full_image_url = request.build_absolute_uri(public_url) if (public_url and not (public_url.startswith('http://') or public_url.startswith('https://'))) else public_url
         return Response({
             'message': 'Listing photo uploaded successfully.',
-            'image_url': public_url,
+            'image_url': full_image_url,
             'filename': photo.name,
             'storage_configured': ListingStorageService.get_config()['is_configured'],
         }, status=status.HTTP_201_CREATED)
@@ -1989,9 +1990,10 @@ class PaymentEvidenceUploadView(APIView):
         if err:
             return Response({'error': err}, status=status.HTTP_400_BAD_REQUEST)
 
+        full_evidence_url = request.build_absolute_uri(public_url) if (public_url and not (public_url.startswith('http://') or public_url.startswith('https://'))) else public_url
         return Response({
             'message': 'Evidence uploaded successfully. Recorded as user-submitted, unverified evidence.',
-            'evidence_url': public_url,
+            'evidence_url': full_evidence_url,
             'filename': proof.name,
             'is_verified': False,
         }, status=status.HTTP_201_CREATED)

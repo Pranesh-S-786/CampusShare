@@ -20,6 +20,19 @@ from .models import (
 
 
 
+import os
+
+def _resolve_media_url(url, request=None):
+    if not url:
+        return '' if url == '' else None
+    if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
+        return url
+    if request:
+        return request.build_absolute_uri(url)
+    backend_base = os.getenv('BACKEND_BASE_URL', 'http://127.0.0.1:8000').rstrip('/')
+    return f"{backend_base}{url}"
+
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
@@ -32,6 +45,10 @@ class LenderSummarySerializer(serializers.ModelSerializer):
     college_short_code = serializers.SerializerMethodField()
     trust_score = serializers.SerializerMethodField()
     is_verified = serializers.BooleanField(source='is_college_verified', read_only=True)
+    avatar_url = serializers.SerializerMethodField()
+
+    def get_avatar_url(self, obj):
+        return _resolve_media_url(obj.avatar_url, self.context.get('request'))
 
     class Meta:
         model = StudentProfile
@@ -69,6 +86,11 @@ class ListingCollegeSummarySerializer(serializers.ModelSerializer):
 
 
 class ListingImageSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        return _resolve_media_url(obj.image_url, self.context.get('request')) or ''
+
     class Meta:
         model = ListingImage
         fields = ['id', 'image_url', 'is_primary', 'order', 'created_at']
@@ -79,11 +101,15 @@ class ListingSerializer(serializers.ModelSerializer):
     college = ListingCollegeSummarySerializer(read_only=True)
     lender = LenderSummarySerializer(read_only=True)
     images = ListingImageSerializer(many=True, read_only=True)
+    image_url = serializers.SerializerMethodField()
     condition_display = serializers.CharField(source='get_condition_display', read_only=True)
     listing_type_display = serializers.CharField(source='get_listing_type_display', read_only=True)
     availability_status = serializers.SerializerMethodField()
     availability_label = serializers.SerializerMethodField()
     booked_until = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj):
+        return _resolve_media_url(obj.image_url, self.context.get('request')) or ''
 
     class Meta:
         model = Listing
@@ -894,9 +920,9 @@ class ConversationSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         profile = getattr(request.user, 'profile', None) if request and request.user.is_authenticated else None
         if not profile:
-            return LenderSummarySerializer(obj.participant_2).data
+            return LenderSummarySerializer(obj.participant_2, context=self.context).data
         other = obj.get_other_participant(profile)
-        return LenderSummarySerializer(other).data
+        return LenderSummarySerializer(other, context=self.context).data
 
     def get_latest_message(self, obj):
         latest = obj.messages.order_by('-created_at').first()

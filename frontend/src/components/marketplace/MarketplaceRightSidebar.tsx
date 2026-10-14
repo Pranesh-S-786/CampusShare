@@ -8,6 +8,7 @@ import {
   Tag,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { resolveMediaUrl } from '../../services/api'
 
 interface MarketplaceRightSidebarProps {
   onOpenPostItem: () => void
@@ -48,8 +49,12 @@ export function MarketplaceRightSidebar({
         <div className="flex items-center space-x-3 min-w-0">
           {user?.avatar_url ? (
             <img
-              src={user.avatar_url}
+              src={resolveMediaUrl(user.avatar_url)}
               alt={user.full_name || user.username}
+              onError={(e) => {
+                e.currentTarget.onerror = null
+                e.currentTarget.src = user.default_avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || user.username)}&background=1B3B2B&color=fff&size=200`
+              }}
               className="w-11 h-11 rounded-full object-cover border border-emerald-600/30 shrink-0"
             />
           ) : (

@@ -118,6 +118,24 @@ const getApiBaseUrl = (): string => {
 }
 
 const API_BASE_URL = getApiBaseUrl()
+
+export function resolveMediaUrl(url: string | null | undefined): string {
+  if (!url) return ''
+  const trimmed = url.trim()
+  if (!trimmed) return ''
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('blob:') ||
+    trimmed.startsWith('data:')
+  ) {
+    return trimmed
+  }
+  const backendRoot = API_BASE_URL.replace(/\/api\/?$/, '')
+  const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+  return `${backendRoot}${cleanPath}`
+}
+
 const TOKEN_KEY = 'campusshare_auth_token'
 
 export function getAuthToken(): string | null {
@@ -600,6 +618,7 @@ export interface BookingUserSummary {
   full_name: string
   college_name: string
   avatar_url?: string | null
+  default_avatar_url?: string
   is_verified: boolean
   is_college_verified?: boolean
   trust_score?: number | null

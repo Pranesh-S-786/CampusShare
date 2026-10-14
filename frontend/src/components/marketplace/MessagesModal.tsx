@@ -20,6 +20,7 @@ import {
   getConversations,
   getConversationMessages,
   sendConversationMessage,
+  resolveMediaUrl,
 } from '../../services/api'
 
 interface MessagesModalProps {
@@ -308,8 +309,12 @@ export const MessagesModal: React.FC<MessagesModalProps> = ({
                       <div className="relative flex-shrink-0">
                         {other?.avatar_url ? (
                           <img
-                            src={other.avatar_url}
+                            src={resolveMediaUrl(other.avatar_url)}
                             alt={other.full_name}
+                            onError={(e) => {
+                              e.currentTarget.onerror = null
+                              e.currentTarget.src = other.default_avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(other.full_name || other.username || 'U')}&background=1B3B2B&color=fff&size=200`
+                            }}
                             className="w-10 h-10 rounded-full object-cover border border-emerald-950/10"
                           />
                         ) : (
@@ -396,8 +401,12 @@ export const MessagesModal: React.FC<MessagesModalProps> = ({
                     <div className="relative">
                       {selectedConv.other_participant?.avatar_url ? (
                         <img
-                          src={selectedConv.other_participant.avatar_url}
+                          src={resolveMediaUrl(selectedConv.other_participant.avatar_url)}
                           alt={selectedConv.other_participant.full_name}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null
+                            e.currentTarget.src = selectedConv.other_participant?.default_avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedConv.other_participant?.full_name || selectedConv.other_participant?.username || 'U')}&background=1B3B2B&color=fff&size=200`
+                          }}
                           className="w-9 h-9 rounded-full object-cover border border-emerald-950/10"
                         />
                       ) : (

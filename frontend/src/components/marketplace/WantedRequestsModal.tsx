@@ -21,6 +21,7 @@ import {
   actionWantedResponse,
   getMyListings,
   getMarketplaceListingDetail,
+  resolveMediaUrl,
 } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -304,8 +305,12 @@ export function WantedRequestsModal({
                     <div className="flex items-center space-x-3 min-w-0">
                       {req.requester.avatar_url ? (
                         <img
-                          src={req.requester.avatar_url}
+                          src={resolveMediaUrl(req.requester.avatar_url)}
                           alt={req.requester.full_name}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null
+                            e.currentTarget.src = req.requester.default_avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(req.requester.full_name || req.requester.username)}&background=1B3B2B&color=fff&size=200`
+                          }}
                           className="w-10 h-10 rounded-full object-cover border border-emerald-600/30 shrink-0"
                         />
                       ) : (

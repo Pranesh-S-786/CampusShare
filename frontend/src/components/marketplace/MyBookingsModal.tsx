@@ -19,6 +19,7 @@ import {
   type Booking,
   getMyBookings,
   cancelBooking,
+  resolveMediaUrl,
 } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { HandoverQRModal } from './HandoverQRModal'
@@ -317,8 +318,12 @@ export function MyBookingsModal({
                       <div className="w-14 h-14 rounded-xl bg-stone-100 overflow-hidden shrink-0 border border-stone-200">
                         {b.listing?.image_url ? (
                           <img
-                            src={b.listing.image_url}
+                            src={resolveMediaUrl(b.listing.image_url)}
                             alt={b.listing.title}
+                            onError={(e) => {
+                              e.currentTarget.onerror = null
+                              e.currentTarget.style.display = 'none'
+                            }}
                             className="w-full h-full object-cover"
                           />
                         ) : (

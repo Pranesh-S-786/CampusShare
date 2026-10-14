@@ -22,6 +22,7 @@ import {
   type Booking,
   getIncomingBookings,
   actionBooking,
+  resolveMediaUrl,
 } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { HandoverQRModal } from './HandoverQRModal'
@@ -357,8 +358,12 @@ export function IncomingRequestsModal({
                       <div className="w-14 h-14 rounded-xl bg-stone-100 overflow-hidden shrink-0 border border-stone-200">
                         {b.listing?.image_url ? (
                           <img
-                            src={b.listing.image_url}
+                            src={resolveMediaUrl(b.listing.image_url)}
                             alt={b.listing.title}
+                            onError={(e) => {
+                              e.currentTarget.onerror = null
+                              e.currentTarget.style.display = 'none'
+                            }}
                             className="w-full h-full object-cover"
                           />
                         ) : (
@@ -415,8 +420,12 @@ export function IncomingRequestsModal({
                     <div className="flex items-center space-x-3 min-w-0">
                       {b.borrower.avatar_url ? (
                         <img
-                          src={b.borrower.avatar_url}
+                          src={resolveMediaUrl(b.borrower.avatar_url)}
                           alt={b.borrower.full_name}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null
+                            e.currentTarget.src = b.borrower.default_avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(b.borrower.full_name || b.borrower.username)}&background=1B3B2B&color=fff&size=200`
+                          }}
                           className="w-10 h-10 rounded-full object-cover border border-emerald-600/30 shrink-0"
                         />
                       ) : (

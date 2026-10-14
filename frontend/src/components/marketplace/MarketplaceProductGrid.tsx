@@ -22,6 +22,7 @@ import {
 import {
   type MarketplaceListing,
   type MarketplaceCategory,
+  resolveMediaUrl,
 } from '../../services/api'
 
 interface MarketplaceProductGridProps {
@@ -236,8 +237,12 @@ export function MarketplaceProductGrid({
                 <div className="relative aspect-[16/10] sm:aspect-[4/3] bg-stone-100 overflow-hidden">
                   {item.image_url ? (
                     <img
-                      src={item.image_url}
+                      src={resolveMediaUrl(item.image_url)}
                       alt={item.title}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null
+                        e.currentTarget.style.display = 'none'
+                      }}
                       className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
                     />
                   ) : (
@@ -344,8 +349,12 @@ export function MarketplaceProductGrid({
                     <div className="flex items-center space-x-2 min-w-0">
                       {item.lender.avatar_url ? (
                         <img
-                          src={item.lender.avatar_url}
+                          src={resolveMediaUrl(item.lender.avatar_url)}
                           alt={item.lender.full_name}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null
+                            e.currentTarget.src = item.lender.default_avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.lender.full_name || item.lender.username)}&background=1B3B2B&color=fff&size=200`
+                          }}
                           className="w-5 h-5 rounded-full object-cover shrink-0"
                         />
                       ) : (

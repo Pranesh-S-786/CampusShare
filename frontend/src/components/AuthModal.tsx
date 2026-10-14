@@ -30,6 +30,7 @@ import {
   uploadProfilePhoto,
   updateProfile,
   removeAuthToken,
+  resolveMediaUrl,
 } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 
@@ -822,8 +823,12 @@ export function AuthModal() {
                 <div className="relative group">
                   <div className="w-24 h-24 rounded-full border-4 border-[#FBF8F3] shadow-lg overflow-hidden bg-stone-100 flex items-center justify-center">
                     <img
-                      src={photoPreview || user?.avatar_url || user?.default_avatar_url || 'https://ui-avatars.com/api/?name=CS&background=1B3B2B&color=fff&size=200'}
+                      src={photoPreview || resolveMediaUrl(user?.avatar_url) || user?.default_avatar_url || 'https://ui-avatars.com/api/?name=CS&background=1B3B2B&color=fff&size=200'}
                       alt="Student Avatar Preview"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null
+                        e.currentTarget.src = user?.default_avatar_url || 'https://ui-avatars.com/api/?name=CS&background=1B3B2B&color=fff&size=200'
+                      }}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -1037,8 +1042,12 @@ export function AuthModal() {
                 <div className="relative">
                   <div className="w-16 h-16 rounded-2xl overflow-hidden bg-stone-200 border-2 border-white shadow-sm flex items-center justify-center">
                     <img
-                      src={user.avatar_url || user.default_avatar_url}
+                      src={resolveMediaUrl(user.avatar_url) || user.default_avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || 'Student')}&background=1B3B2B&color=fff&size=200`}
                       alt={user.full_name}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null
+                        e.currentTarget.src = user.default_avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || 'Student')}&background=1B3B2B&color=fff&size=200`
+                      }}
                       className="w-full h-full object-cover"
                     />
                   </div>

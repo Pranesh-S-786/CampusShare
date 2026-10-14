@@ -152,7 +152,7 @@ class VerifyEmailView(APIView):
             return Response({
                 'message': 'Email address is already verified.',
                 'token': token.key,
-                'user': StudentProfileSerializer(profile).data,
+                'user': StudentProfileSerializer(profile, context={'request': request}).data,
             }, status=status.HTTP_200_OK)
 
         # Look up valid verification record
@@ -188,7 +188,7 @@ class VerifyEmailView(APIView):
         return Response({
             'message': 'Email address verified successfully!',
             'token': token.key,
-            'user': StudentProfileSerializer(profile).data,
+            'user': StudentProfileSerializer(profile, context={'request': request}).data,
             'is_college_verified': profile.is_college_verified,
             'verification_status': profile.verification_status,
         }, status=status.HTTP_200_OK)
@@ -299,7 +299,7 @@ class LoginView(APIView):
         return Response({
             'message': 'Login successful.',
             'token': token.key,
-            'user': StudentProfileSerializer(profile).data,
+            'user': StudentProfileSerializer(profile, context={'request': request}).data,
             'is_email_verified': True,
             'is_college_verified': profile.is_college_verified,
         }, status=status.HTTP_200_OK)
@@ -328,7 +328,7 @@ class MeView(APIView):
     def get(self, request):
         profile = request.user.profile
         return Response({
-            'user': StudentProfileSerializer(profile).data,
+            'user': StudentProfileSerializer(profile, context={'request': request}).data,
         })
 
     def patch(self, request):
@@ -340,7 +340,7 @@ class MeView(APIView):
         serializer.save()
         return Response({
             'message': 'Profile updated successfully.',
-            'user': StudentProfileSerializer(profile).data,
+            'user': StudentProfileSerializer(profile, context={'request': request}).data,
         })
 
 
@@ -438,7 +438,7 @@ class ResetPasswordView(APIView):
         return Response({
             'message': 'Password has been reset successfully. You are now logged in.',
             'token': new_token.key,
-            'user': StudentProfileSerializer(user.profile).data,
+            'user': StudentProfileSerializer(user.profile, context={'request': request}).data,
         }, status=status.HTTP_200_OK)
 
 
@@ -476,8 +476,9 @@ class UploadProfilePhotoView(APIView):
         profile.avatar_url = public_url
         profile.save(update_fields=['avatar_url', 'updated_at'])
 
+        user_data = StudentProfileSerializer(profile, context={'request': request}).data
         return Response({
             'message': 'Profile photo uploaded to Supabase Storage successfully.',
-            'avatar_url': public_url,
-            'user': StudentProfileSerializer(profile).data,
+            'avatar_url': user_data.get('avatar_url') or public_url,
+            'user': user_data,
         }, status=status.HTTP_200_OK)

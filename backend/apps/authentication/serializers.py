@@ -23,6 +23,20 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     default_avatar_url = serializers.CharField(read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
     trust_score = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
+
+    def get_avatar_url(self, obj):
+        url = obj.avatar_url
+        if not url:
+            return None
+        if url.startswith('http://') or url.startswith('https://'):
+            return url
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(url)
+        import os
+        backend_base = os.getenv('BACKEND_BASE_URL', 'http://127.0.0.1:8000').rstrip('/')
+        return f"{backend_base}{url}"
 
     class Meta:
         model = StudentProfile

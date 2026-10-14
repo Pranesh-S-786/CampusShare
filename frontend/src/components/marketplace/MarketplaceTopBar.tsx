@@ -10,7 +10,7 @@ import {
   LogOut,
   Menu,
 } from 'lucide-react'
-import { type College } from '../../services/api'
+import { type College, resolveMediaUrl } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
 interface MarketplaceTopBarProps {
@@ -249,8 +249,12 @@ export function MarketplaceTopBar({
               >
                 {user.avatar_url ? (
                   <img
-                    src={user.avatar_url}
+                    src={resolveMediaUrl(user.avatar_url)}
                     alt={user.full_name || user.username}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null
+                      e.currentTarget.src = user.default_avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || user.username)}&background=1B3B2B&color=fff&size=200`
+                    }}
                     className="w-7 h-7 rounded-full object-cover border border-emerald-600/30"
                   />
                 ) : (

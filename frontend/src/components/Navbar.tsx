@@ -7,6 +7,7 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { resolveMediaUrl } from '../services/api'
 
 interface NavbarProps {
   onOpenMarketplace: () => void
@@ -118,8 +119,12 @@ export function Navbar({ onOpenMarketplace, onOpenAuth, onScrollToSection }: Nav
                 {/* Profile Photo or Neutral Initials Avatar */}
                 {user.avatar_url ? (
                   <img
-                    src={user.avatar_url}
+                    src={resolveMediaUrl(user.avatar_url)}
                     alt={user.full_name || user.username}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null
+                      e.currentTarget.src = user.default_avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || user.username)}&background=1B3B2B&color=fff&size=200`
+                    }}
                     className="w-7 h-7 rounded-full object-cover border border-emerald-600/30"
                   />
                 ) : (
@@ -245,8 +250,12 @@ export function Navbar({ onOpenMarketplace, onOpenAuth, onScrollToSection }: Nav
             >
               {user.avatar_url ? (
                 <img
-                  src={user.avatar_url}
+                  src={resolveMediaUrl(user.avatar_url)}
                   alt={user.full_name || user.username}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null
+                    e.currentTarget.src = user.default_avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || user.username)}&background=1B3B2B&color=fff&size=200`
+                  }}
                   className="w-7 h-7 rounded-full object-cover"
                 />
               ) : (
@@ -275,8 +284,12 @@ export function Navbar({ onOpenMarketplace, onOpenAuth, onScrollToSection }: Nav
             <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/70 flex items-center space-x-3 mb-2">
               {user.avatar_url ? (
                 <img
-                  src={user.avatar_url}
+                  src={resolveMediaUrl(user.avatar_url)}
                   alt={user.full_name || user.username}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null
+                    e.currentTarget.src = user.default_avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || user.username)}&background=1B3B2B&color=fff&size=200`
+                  }}
                   className="w-9 h-9 rounded-full object-cover border border-emerald-600/30"
                 />
               ) : (

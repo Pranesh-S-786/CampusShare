@@ -20,6 +20,7 @@ import {
   archiveMarketplaceListing,
   deleteMarketplaceListing,
   updateMarketplaceListing,
+  resolveMediaUrl,
 } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -346,8 +347,12 @@ export function MyListingsModal({
                       <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-stone-100 border border-stone-200 shrink-0">
                         {item.image_url ? (
                           <img
-                            src={item.image_url}
+                            src={resolveMediaUrl(item.image_url)}
                             alt={item.title}
+                            onError={(e) => {
+                              e.currentTarget.onerror = null
+                              e.currentTarget.style.display = 'none'
+                            }}
                             className="w-full h-full object-cover"
                           />
                         ) : (
