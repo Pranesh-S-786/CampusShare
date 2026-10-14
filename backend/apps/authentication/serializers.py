@@ -33,7 +33,10 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             return url
         request = self.context.get('request')
         if request:
-            return request.build_absolute_uri(url)
+            try:
+                return request.build_absolute_uri(url)
+            except Exception:
+                pass
         import os
         backend_base = os.getenv('BACKEND_BASE_URL', 'http://127.0.0.1:8000').rstrip('/')
         return f"{backend_base}{url}"

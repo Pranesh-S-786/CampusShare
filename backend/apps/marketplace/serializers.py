@@ -28,7 +28,10 @@ def _resolve_media_url(url, request=None):
     if url.startswith('http://') or url.startswith('https://') or url.startswith('data:'):
         return url
     if request:
-        return request.build_absolute_uri(url)
+        try:
+            return request.build_absolute_uri(url)
+        except Exception:
+            pass
     backend_base = os.getenv('BACKEND_BASE_URL', 'http://127.0.0.1:8000').rstrip('/')
     return f"{backend_base}{url}"
 
