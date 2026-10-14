@@ -103,7 +103,21 @@ export interface ResetPasswordPayload {
   confirm_password: string
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
+const getApiBaseUrl = (): string => {
+  const envUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '').trim()
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname
+    const isDeployed = host.includes('vercel.app') || (host !== 'localhost' && host !== '127.0.0.1')
+    if (isDeployed) {
+      if (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1') || envUrl.startsWith('http://')) {
+        return 'https://campusshare-dimx.onrender.com/api'
+      }
+    }
+  }
+  return envUrl || 'http://127.0.0.1:8000/api'
+}
+
+const API_BASE_URL = getApiBaseUrl()
 const TOKEN_KEY = 'campusshare_auth_token'
 
 export function getAuthToken(): string | null {
@@ -1104,6 +1118,7 @@ export async function declarePayment(
     transaction_reference?: string
     evidence_url?: string
     payer_notes?: string
+    confirm_as_recipient?: boolean
   }
 ): Promise<{ message: string; payment: PaymentRecordItem; summary: FinancialSummary }> {
   const res = await fetch(`${API_BASE_URL}/marketplace/bookings/${bookingId}/payments/declare/`, {

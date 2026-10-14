@@ -139,9 +139,18 @@ export function PostItemModal({
         continue
       }
 
-      // Client validation: MIME type
-      const allowed = ['image/jpeg', 'image/png', 'image/webp']
-      if (!allowed.includes(file.type)) {
+      // Client validation: MIME type or extension fallback
+      const fileType = file.type?.toLowerCase() || ''
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || ''
+      const isAllowedMime =
+        fileType === 'image/jpeg' ||
+        fileType === 'image/jpg' ||
+        fileType === 'image/png' ||
+        fileType === 'image/webp' ||
+        fileType.startsWith('image/')
+      const isAllowedExt = ['jpeg', 'jpg', 'png', 'webp'].includes(fileExt)
+
+      if (!isAllowedMime && !isAllowedExt) {
         setUploadError(`"${file.name}" has an unsupported format. Please upload JPEG, PNG, or WebP images.`)
         continue
       }
@@ -560,7 +569,7 @@ export function PostItemModal({
                   ref={fileInputRef}
                   type="file"
                   multiple
-                  accept="image/jpeg,image/png,image/webp"
+                  accept="image/*,image/jpeg,image/jpg,image/png,image/webp"
                   onChange={handlePhotoSelect}
                   className="hidden"
                 />

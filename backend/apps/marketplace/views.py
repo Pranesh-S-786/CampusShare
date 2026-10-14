@@ -1364,9 +1364,22 @@ class PaymentDeclareView(APIView):
             evidence_url = serializer.validated_data.get('evidence_url', '').strip()
             payer_notes = serializer.validated_data.get('payer_notes', '').strip()
 
-            # Payer is current profile, recipient is the counterpart
-            payer = profile
-            recipient = booking.lender if profile.id == booking.borrower_id else booking.borrower
+            confirm_as_recipient = serializer.validated_data.get('confirm_as_recipient', False)
+            if confirm_as_recipient and profile.id == booking.lender_id:
+                from django.utils import timezone
+                payer = booking.borrower
+                recipient = profile
+                status_val = 'confirmed'
+                confirmed_at_val = timezone.now()
+                confirmed_by_val = profile
+                note_text = f"Lender confirmed direct receipt of Rs. {amount} ({purpose}) from borrower via {payment_method}"
+            else:
+                payer = profile
+                recipient = booking.lender if profile.id == booking.borrower_id else booking.borrower
+                status_val = 'declared'
+                confirmed_at_val = None
+                confirmed_by_val = None
+                note_text = f"Payment declaration recorded: Rs. {amount} for {purpose} via {payment_method}"
 
             payment = PaymentRecord.objects.create(
                 booking=booking,
@@ -1376,7 +1389,9 @@ class PaymentDeclareView(APIView):
                 amount=amount,
                 currency=booking.currency or 'INR',
                 payment_method=payment_method,
-                status='declared',
+                status=status_val,
+                confirmed_at=confirmed_at_val,
+                confirmed_by=confirmed_by_val,
                 transaction_reference=transaction_ref,
                 evidence_url=evidence_url,
                 payer_notes=payer_notes,
@@ -1385,12 +1400,16 @@ class PaymentDeclareView(APIView):
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,
-                note=f"Payment declaration recorded: Rs. {amount} for {purpose} via {payment_method}"
+                note=note_text
             )
             booking.save(update_fields=['status_history', 'updated_at'])
 
-        from .notification_service import notify_payment_declared
-        notify_payment_declared(payment)
+        if status_val == 'confirmed':
+            from .notification_service import notify_payment_confirmed
+            notify_payment_confirmed(payment)
+        else:
+            from .notification_service import notify_payment_declared
+            notify_payment_declared(payment)
 
         return Response({
             'message': 'Payment declaration submitted. Awaiting recipient confirmation.',

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   X,
   CreditCard,
@@ -9,6 +9,7 @@ import {
   Send,
   Check,
   Clock,
+  RotateCw,
 } from 'lucide-react'
 import {
   type Booking,
@@ -41,6 +42,7 @@ export function AdvancePaymentModal({
   const [showDisputeInput, setShowDisputeInput] = useState(false)
 
   const [isLoading, setIsLoading] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
@@ -50,40 +52,58 @@ export function AdvancePaymentModal({
     : 0
 
   const isNoAdvanceApplicable = agreedAmount <= 0
-
-  // Load existing deposit payment records
-  useEffect(() => {
-    if (!isOpen || !booking) return
-
-    let isMounted = true
-    const loadFinancials = async () => {
-      setIsLoading(true)
-      try {
-        const fin = await getBookingFinancials(booking.id)
-        if (isMounted) {
-          const dep = fin.payments.find((p) => p.purpose === 'deposit') || null
-          setDepositPayment(dep)
-        }
-      } catch (err: unknown) {
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : 'Failed to load advance payment records.')
-        }
-      } finally {
-        if (isMounted) setIsLoading(false)
-      }
-    }
-
-    loadFinancials()
-    return () => {
-      isMounted = false
-    }
-  }, [isOpen, booking])
-
-  if (!isOpen || !booking) return null
-
   const isConfirmed = depositPayment?.status === 'confirmed'
   const isDeclared = depositPayment?.status === 'declared'
   const isDisputed = depositPayment?.status === 'disputed'
+
+  const loadFinancials = useCallback(async (isManualRefresh = false) => {
+    if (!booking) return
+    if (isManualRefresh) setIsRefreshing(true)
+    try {
+      const fin = await getBookingFinancials(booking.id)
+      const relevantPayments = fin.payments.filter(
+        (p) =>
+          p.purpose === 'deposit' ||
+          (p.purpose as string) === 'advance' ||
+          (agreedAmount > 0 && Math.abs(Number(p.amount) - agreedAmount) < 0.01)
+      )
+      const dep =
+        relevantPayments.find((p) => p.status === 'declared') ||
+        relevantPayments.find((p) => p.status === 'confirmed') ||
+        (relevantPayments.length > 0 ? relevantPayments[relevantPayments.length - 1] : null)
+
+      setDepositPayment(dep)
+      setError(null)
+    } catch (err: unknown) {
+      if (isManualRefresh) {
+        setError(err instanceof Error ? err.message : 'Failed to refresh advance payment records.')
+      }
+    } finally {
+      if (isManualRefresh) setIsRefreshing(false)
+    }
+  }, [booking, agreedAmount])
+
+  // Initial load
+  useEffect(() => {
+    if (!isOpen || !booking) return
+    setIsLoading(true)
+    loadFinancials().finally(() => {
+      setIsLoading(false)
+    })
+  }, [isOpen, booking, loadFinancials])
+
+  // Polling every 2.5 seconds while open until payment is confirmed
+  useEffect(() => {
+    if (!isOpen || !booking || isConfirmed) return
+
+    const interval = setInterval(() => {
+      loadFinancials()
+    }, 2500)
+
+    return () => clearInterval(interval)
+  }, [isOpen, booking, isConfirmed, loadFinancials])
+
+  if (!isOpen || !booking) return null
 
   // Borrower declares advance payment
   const handleMarkAsPaid = async (e: React.FormEvent) => {
@@ -112,15 +132,29 @@ export function AdvancePaymentModal({
 
   // Lender confirms receipt of advance payment
   const handleConfirmReceived = async () => {
-    if (!depositPayment) return
     setIsSubmitting(true)
     setError(null)
     setSuccessMsg(null)
 
     try {
-      const res = await confirmPayment(depositPayment.id)
-      setDepositPayment(res.payment)
-      setSuccessMsg('Advance payment confirmed by both parties.')
+      if (depositPayment && depositPayment.status === 'declared') {
+        const res = await confirmPayment(depositPayment.id)
+        setDepositPayment(res.payment)
+        setSuccessMsg('Advance payment confirmed by lender.')
+      } else if (depositPayment && depositPayment.status === 'confirmed') {
+        setSuccessMsg('Advance payment is already confirmed.')
+      } else {
+        // Direct confirmation by lender if borrower paid offline (cash/UPI) without prior declaration
+        const res = await declarePayment(booking.id, {
+          purpose: 'deposit',
+          amount: agreedAmount,
+          payment_method: 'cash',
+          payer_notes: 'Advance receipt confirmed directly by lender',
+          confirm_as_recipient: true,
+        })
+        setDepositPayment(res.payment)
+        setSuccessMsg('Advance payment confirmed by lender.')
+      }
       onSuccess?.()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to confirm receipt.')
@@ -178,13 +212,24 @@ export function AdvancePaymentModal({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full hover:bg-stone-100 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-colors cursor-pointer shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center space-x-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => loadFinancials(true)}
+              disabled={isRefreshing || isLoading}
+              title="Refresh payment status"
+              className="w-8 h-8 rounded-full hover:bg-stone-100 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-colors cursor-pointer"
+            >
+              <RotateCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-emerald-800' : ''}`} />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-full hover:bg-stone-100 flex items-center justify-center text-stone-400 hover:text-stone-600 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -390,7 +435,7 @@ export function AdvancePaymentModal({
                       <button
                         type="button"
                         onClick={handleConfirmReceived}
-                        disabled={isSubmitting || !depositPayment}
+                        disabled={isSubmitting}
                         className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-800 text-white font-bold text-xs hover:bg-emerald-900 transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
                         {isSubmitting ? (

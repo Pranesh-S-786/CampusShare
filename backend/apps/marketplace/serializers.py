@@ -712,6 +712,7 @@ class PaymentDeclareSerializer(serializers.Serializer):
     transaction_reference = serializers.CharField(required=False, allow_blank=True, max_length=100)
     evidence_url = serializers.URLField(required=False, allow_blank=True, max_length=1024)
     payer_notes = serializers.CharField(required=False, allow_blank=True, max_length=1000)
+    confirm_as_recipient = serializers.BooleanField(required=False, default=False)
 
 
 class PaymentDisputeSerializer(serializers.Serializer):

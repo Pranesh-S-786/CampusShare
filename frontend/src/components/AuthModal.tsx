@@ -792,7 +792,7 @@ export function AuthModal() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/jpeg,image/png,image/webp"
+                  accept="image/*,image/jpeg,image/jpg,image/png,image/webp"
                   className="hidden"
                   onChange={handlePhotoSelect}
                 />

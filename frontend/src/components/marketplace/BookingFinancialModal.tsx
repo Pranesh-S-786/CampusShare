@@ -1029,7 +1029,7 @@ export function BookingFinancialModal({
                         <div className="flex items-center space-x-2">
                           <input
                             type="file"
-                            accept="image/jpeg,image/png,image/webp,application/pdf"
+                            accept="image/*,image/jpeg,image/jpg,image/png,image/webp,application/pdf"
                             onChange={handleFileChange}
                             className="text-xs text-stone-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-stone-200 file:text-stone-700 hover:file:bg-stone-300"
                           />
