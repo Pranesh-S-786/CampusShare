@@ -110,7 +110,7 @@ class EmailDeliveryService:
             else:
                 _send_email_worker(subject, text_message, html_message, from_email, [email], reply_to)
 
-            allow_hint = getattr(settings, 'SHOW_OTP_HINT', True) or getattr(settings, 'DEBUG', False)
+            allow_hint = getattr(settings, 'SHOW_OTP_HINT', False)
             return {
                 'delivered': True,
                 'method': 'smtp',
@@ -119,13 +119,13 @@ class EmailDeliveryService:
             }
 
         # SMTP fallback in case no host/user is provided
-        allow_hint = getattr(settings, 'SHOW_OTP_HINT', True) or getattr(settings, 'DEBUG', False)
+        allow_hint = getattr(settings, 'SHOW_OTP_HINT', False)
         if settings.DEBUG:
             print(f"[CAMPUSSHARE DEV] OTP for {email}: {code}")
             return {
                 'delivered': False,
                 'method': 'development_fallback',
-                'message': "SMTP credentials are not configured in backend/.env.",
+                'message': f"Verification code sent to {email}",
                 'dev_code': code if allow_hint else None,
             }
 
@@ -198,7 +198,7 @@ class EmailDeliveryService:
             else:
                 _send_email_worker(subject, text_message, html_message, from_email, [email], reply_to)
 
-            allow_hint = getattr(settings, 'SHOW_OTP_HINT', True) or getattr(settings, 'DEBUG', False)
+            allow_hint = getattr(settings, 'SHOW_OTP_HINT', False)
             return {
                 'delivered': True,
                 'method': 'smtp',
@@ -206,13 +206,13 @@ class EmailDeliveryService:
                 'dev_code': code if allow_hint else None,
             }
 
-        allow_hint = getattr(settings, 'SHOW_OTP_HINT', True) or getattr(settings, 'DEBUG', False)
+        allow_hint = getattr(settings, 'SHOW_OTP_HINT', False)
         if settings.DEBUG:
             print(f"[CAMPUSSHARE DEV] Password reset code for {email}: {code}")
             return {
                 'delivered': False,
                 'method': 'development_fallback',
-                'message': "SMTP credentials are not configured in backend/.env.",
+                'message': f"Password reset code sent to {email}",
                 'dev_code': code if allow_hint else None,
             }
 

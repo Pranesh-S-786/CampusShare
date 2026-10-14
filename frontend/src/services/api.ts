@@ -107,7 +107,14 @@ const getApiBaseUrl = (): string => {
   const envUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '').trim()
   if (typeof window !== 'undefined') {
     const host = window.location.hostname
-    const isDeployed = host.includes('vercel.app') || (host !== 'localhost' && host !== '127.0.0.1')
+    const isLocalNetwork =
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host.startsWith('192.168.') ||
+      host.startsWith('10.') ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+      host.endsWith('.local')
+    const isDeployed = host.includes('vercel.app') || (!isLocalNetwork && !host.includes('localhost'))
     if (isDeployed) {
       if (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1') || envUrl.startsWith('http://')) {
         return 'https://campusshare-dimx.onrender.com/api'

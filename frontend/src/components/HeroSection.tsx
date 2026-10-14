@@ -17,6 +17,7 @@ import {
 import heroSceneImage from '../assets/campus_hero_3d_clean.jpg'
 import { Product3DScene } from './Product3DScene'
 import { CategoryDock } from './CategoryDock'
+import StrokeText from './StrokeText'
 
 interface HeroSectionProps {
   onOpenMarketplace: () => void
@@ -88,10 +89,27 @@ export function HeroSection({
         </div>
 
         {/* Main Headline matching reference */}
-        <h1 className="text-[34px] xs:text-[38px] font-black tracking-tight text-stone-900 leading-[1.08] text-center">
+        <h1 className="text-[32px] xs:text-[36px] font-black tracking-tight text-stone-900 leading-[1.12] text-center">
           Same Campus.
           <br />
-          More <span className="text-[#2C6E49]">Possibilities.</span>
+          <span className="inline-flex items-center justify-center gap-2">
+            <span>More</span>
+            <StrokeText
+              text="Possibilities."
+              strokeColor="#1B3B2B"
+              fillColor="#2C6E49"
+              strokeWidth={1.8}
+              drawDuration={1.5}
+              fillDelay={0.2}
+              stagger={0.04}
+              ease="power2.out"
+              trigger="mount"
+              fillMode="wipe"
+              fontSize={36}
+              fontWeight={800}
+              letterSpacing={-1}
+            />
+          </span>
         </h1>
 
         {/* Subtitle matching reference */}
@@ -306,7 +324,24 @@ export function HeroSection({
                 <h1 className="text-4xl sm:text-5xl xl:text-[54px] font-extrabold tracking-tight text-stone-900 leading-[1.12]">
                   Same Campus.
                   <br />
-                  More <span className="text-[#2C6E49]">Possibilities.</span>
+                  <span className="inline-flex items-center gap-3">
+                    <span>More</span>
+                    <StrokeText
+                      text="Possibilities."
+                      strokeColor="#1B3B2B"
+                      fillColor="#2C6E49"
+                      strokeWidth={1.8}
+                      drawDuration={1.5}
+                      fillDelay={0.2}
+                      stagger={0.04}
+                      ease="power2.out"
+                      trigger="mount"
+                      fillMode="wipe"
+                      fontSize={54}
+                      fontWeight={800}
+                      letterSpacing={-1}
+                    />
+                  </span>
                 </h1>
               </div>
 

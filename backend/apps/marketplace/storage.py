@@ -119,8 +119,14 @@ class ListingStorageService:
             guessed_type, _ = mimetypes.guess_type(original_filename)
             if guessed_type in cls.ALLOWED_CONTENT_TYPES:
                 norm_content_type = guessed_type
+            elif norm_content_type.startswith('image/'):
+                pass
             else:
-                return None, f"Unsupported file type '{content_type}'. Please upload JPEG, PNG, or WebP images."
+                ext_check = os.path.splitext(original_filename)[1].lower()
+                if ext_check in ('.jpg', '.jpeg', '.png', '.webp', '.jfif', '.avif'):
+                    norm_content_type = 'image/jpeg' if ext_check in ('.jpg', '.jpeg', '.jfif') else f"image/{ext_check.lstrip('.')}"
+                else:
+                    return None, f"Unsupported file type '{content_type}'. Please upload JPEG, PNG, or WebP images."
 
         ext = mimetypes.guess_extension(norm_content_type) or '.jpg'
         if ext == '.jpe':

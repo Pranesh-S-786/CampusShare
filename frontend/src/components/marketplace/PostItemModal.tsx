@@ -122,9 +122,14 @@ export function PostItemModal({
   if (!isOpen) return null
 
   // Photo upload handler
-  const handlePhotoSelect = async (e: ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
+  const processFiles = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return
+
+    if (!user) {
+      setUploadError('Please log in to upload product images.')
+      openAuthModal('login')
+      return
+    }
 
     setIsUploadingPhoto(true)
     setUploadError(null)
@@ -149,7 +154,7 @@ export function PostItemModal({
         fileType === 'image/png' ||
         fileType === 'image/webp' ||
         fileType.startsWith('image/')
-      const isAllowedExt = ['jpeg', 'jpg', 'png', 'webp'].includes(fileExt)
+      const isAllowedExt = ['jpeg', 'jpg', 'png', 'webp', 'jfif', 'avif', 'heic'].includes(fileExt)
 
       if (!isAllowedMime && !isAllowedExt) {
         setUploadError(`"${file.name}" has an unsupported format. Please upload JPEG, PNG, or WebP images.`)
@@ -173,6 +178,20 @@ export function PostItemModal({
     setIsUploadingPhoto(false)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
+    }
+  }
+
+  const handlePhotoSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      processFiles(e.target.files)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files)
     }
   }
 
@@ -560,6 +579,8 @@ export function PostItemModal({
               {/* Upload trigger box */}
               <div
                 onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
+                onDrop={handleDrop}
                 className={`border-2 border-dashed rounded-2xl p-4 text-center transition-all cursor-pointer ${
                   isUploadingPhoto
                     ? 'border-emerald-500 bg-emerald-50/50'
@@ -580,7 +601,7 @@ export function PostItemModal({
                     <>
                       <RefreshCw className="w-6 h-6 text-emerald-700 animate-spin" />
                       <p className="text-xs font-semibold text-emerald-900">
-                        Uploading to Supabase Storage...
+                        Uploading photo...
                       </p>
                     </>
                   ) : (
