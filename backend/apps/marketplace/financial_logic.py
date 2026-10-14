@@ -82,13 +82,13 @@ def check_order_closure_eligibility(booking: Booking) -> Tuple[bool, str]:
         total_ob = Decimal(fin['total_obligations'])
         if confirmed_rev < total_ob:
             outstanding = total_ob - confirmed_rev
-            return False, f"Awaiting payment confirmation: ₹{outstanding:.2f} remains outstanding to be confirmed by lender."
+            return False, f"Awaiting payment confirmation: Rs. {outstanding:.2f} remains outstanding to be confirmed by lender under Billing & Payments."
 
     if net_lender > Decimal('0.00'):
         refund_obj = getattr(booking, 'deposit_refund', None)
         if not refund_obj or refund_obj.status != 'confirmed':
             outstanding = net_lender - Decimal(fin['refund_confirmed_amount'])
-            return False, f"Awaiting refund confirmation: ₹{outstanding:.2f} refund remains to be confirmed by borrower."
+            return False, f"Awaiting refund confirmation: Rs. {outstanding:.2f} deposit refund must be declared by lender and confirmed by borrower under Billing & Payments before completing the order."
 
     return True, ""
 

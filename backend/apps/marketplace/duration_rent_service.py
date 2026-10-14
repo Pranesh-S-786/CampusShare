@@ -121,7 +121,7 @@ def calculate_actual_rental_terms(
         'return_confirmed_at': effective_return.isoformat() if return_time else None,
         'billing_policy': (
             f"Partial {unit}s are rounded up to the nearest whole {unit}. "
-            f"Agreed rate: ₹{unit_price}/{unit}. Minimum charge: 1 {unit}."
+            f"Agreed rate: Rs. {unit_price}/{unit}. Minimum charge: 1 {unit}."
         ),
     }
 
@@ -168,14 +168,14 @@ def calculate_late_penalty_estimate(booking) -> Dict[str, Any]:
     if unit == 'hour':
         hourly_rate = unit_price
     else:
-        # Daily or longer: hourly pro-rata rate is unit_price / 24 (minimum ₹10/hr)
+        # Daily or longer: hourly pro-rata rate is unit_price / 24 (minimum Rs. 10/hr)
         hourly_rate = max(unit_price / Decimal('24.0'), Decimal('10.00'))
 
     suggested_fee = (hourly_rate * Decimal(str(late_hours))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     policy_desc = (
         f"Item returned {late_hours} hour(s) past agreed due timestamp (including 2h grace window). "
-        f"Suggested late fee calculated at ₹{hourly_rate.quantize(Decimal('0.01'))}/hour based on disclosed policy."
+        f"Suggested late fee calculated at Rs. {hourly_rate.quantize(Decimal('0.01'))}/hour based on disclosed policy."
     )
 
     return {

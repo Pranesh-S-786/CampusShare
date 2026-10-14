@@ -136,24 +136,63 @@ function getAuthHeaders(isMultipart = false): HeadersInit {
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
-  const data = await res.json().catch(() => ({}))
+  let data: any = null
+  let rawText = ''
+  try {
+    rawText = await res.text()
+    data = rawText ? JSON.parse(rawText) : {}
+  } catch {
+    data = rawText || {}
+  }
+
   if (!res.ok) {
-    let errorMsg = 'An unexpected error occurred.'
-    if (data?.error && typeof data.error === 'string') {
-      errorMsg = data.error
-    } else if (data?.errors) {
-      if (typeof data.errors === 'string') {
-        errorMsg = data.errors
-      } else if (typeof data.errors === 'object') {
-        const firstKey = Object.keys(data.errors)[0]
-        const val = data.errors[firstKey]
-        errorMsg = Array.isArray(val) ? val[0] : String(val)
+    let errorMsg = ''
+    if (typeof data === 'string' && data.trim()) {
+      errorMsg = data.trim()
+    } else if (data && typeof data === 'object') {
+      if (typeof data.error === 'string' && data.error.trim()) {
+        errorMsg = data.error.trim()
+      } else if (data.error && typeof data.error === 'object') {
+        errorMsg = data.error.message || JSON.stringify(data.error)
+      } else if (typeof data.detail === 'string' && data.detail.trim()) {
+        errorMsg = data.detail.trim()
+      } else if (typeof data.message === 'string' && data.message.trim()) {
+        errorMsg = data.message.trim()
+      } else if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
+        errorMsg = String(data.non_field_errors[0])
+      } else if (data.errors) {
+        if (typeof data.errors === 'string') {
+          errorMsg = data.errors
+        } else if (typeof data.errors === 'object') {
+          const firstKey = Object.keys(data.errors)[0]
+          const val = data.errors[firstKey]
+          errorMsg = Array.isArray(val) ? `${firstKey}: ${val[0]}` : `${firstKey}: ${String(val)}`
+        }
+      } else {
+        // Handle DRF root-level field validation errors: { [field]: [error_message] }
+        const keys = Object.keys(data)
+        if (keys.length > 0) {
+          const firstKey = keys[0]
+          const val = data[firstKey]
+          if (Array.isArray(val) && val.length > 0) {
+            errorMsg = `${firstKey !== 'non_field_errors' ? `${firstKey}: ` : ''}${val[0]}`
+          } else if (typeof val === 'string') {
+            errorMsg = `${firstKey}: ${val}`
+          }
+        }
       }
-    } else if (data?.detail) {
-      errorMsg = data.detail
-    } else if (data?.message) {
-      errorMsg = data.message
     }
+
+    if (!errorMsg) {
+      if (res.status >= 500) {
+        errorMsg = `Server error (${res.status}): ${res.statusText || 'Internal Server Error'}. Please check backend logs.`
+      } else if (res.statusText) {
+        errorMsg = `Request failed with status ${res.status} (${res.statusText}).`
+      } else {
+        errorMsg = `Request failed with HTTP status ${res.status}.`
+      }
+    }
+
     const err = new Error(errorMsg) as Error & { status: number; data: any }
     err.status = res.status
     err.data = data

@@ -2,8 +2,6 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Search,
   ArrowRight,
-  Menu,
-  X,
   User as UserIcon,
   LogOut,
   ChevronDown,
@@ -73,7 +71,7 @@ export function Navbar({ onOpenMarketplace, onOpenAuth, onScrollToSection }: Nav
         </div>
 
         {/* Center Pill Navigation (Desktop) */}
-        <nav className="hidden md:flex items-center space-x-1 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-md border border-slate-200/70 shadow-sm shadow-slate-200/40">
+        <nav className="hidden lg:flex items-center space-x-1 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-md border border-slate-200/70 shadow-sm shadow-slate-200/40">
           {navLinks.map((link) => {
             const isActive = activeTab === link.name
             return (
@@ -94,7 +92,7 @@ export function Navbar({ onOpenMarketplace, onOpenAuth, onScrollToSection }: Nav
         </nav>
 
         {/* Right Action Buttons */}
-        <div className="hidden sm:flex items-center space-x-3">
+        <div className="hidden lg:flex items-center space-x-3">
           {/* Search Trigger */}
           <button
             type="button"
@@ -225,30 +223,54 @@ export function Navbar({ onOpenMarketplace, onOpenAuth, onScrollToSection }: Nav
           )}
         </div>
 
-        {/* Mobile Menu Button */}
-        <div className="flex sm:hidden items-center space-x-2">
+        {/* Mobile Header Right Controls matching reference screenshot */}
+        <div className="flex lg:hidden items-center space-x-2">
+          {/* Circular Search Trigger */}
           <button
             type="button"
             onClick={onOpenMarketplace}
-            className="p-2 rounded-full bg-white/80 text-stone-700 border border-slate-200"
-            aria-label="Search"
+            className="w-9 h-9 rounded-full bg-white/90 hover:bg-white text-stone-700 border border-slate-200/90 shadow-2xs flex items-center justify-center transition-colors cursor-pointer"
+            aria-label="Search items"
           >
             <Search className="w-4 h-4" />
           </button>
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-full bg-white/80 text-stone-700 border border-slate-200"
-            aria-label="Toggle menu"
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
+
+          {/* User Profile Avatar with dropdown arrow */}
+          {user ? (
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="flex items-center space-x-1 pl-1 pr-1.5 py-1 rounded-full bg-white/95 hover:bg-white border border-stone-200/90 shadow-xs cursor-pointer transition-all"
+              aria-label="User profile menu"
+            >
+              {user.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt={user.full_name || user.username}
+                  className="w-7 h-7 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-[#1B3B2B] text-amber-100 flex items-center justify-center font-bold text-xs shadow-xs">
+                  {userInitial}
+                </div>
+              )}
+              <ChevronDown className={`w-3.5 h-3.5 text-stone-500 transition-transform ${mobileMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onOpenAuth('login')}
+              className="px-3.5 py-1.5 rounded-full text-xs font-bold text-white bg-[#1B3B2B] shadow-xs cursor-pointer"
+            >
+              Log in
+            </button>
+          )}
         </div>
       </div>
 
       {/* Mobile Menu Drawer */}
       {mobileMenuOpen && (
-        <div className="sm:hidden mt-3 p-4 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200 shadow-xl space-y-3">
+        <div className="lg:hidden mt-3 p-4 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200 shadow-xl space-y-3">
           {user && (
             <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/70 flex items-center space-x-3 mb-2">
               {user.avatar_url ? (

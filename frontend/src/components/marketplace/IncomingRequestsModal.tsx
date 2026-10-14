@@ -747,7 +747,9 @@ export function IncomingRequestsModal({
                         <label className="block text-xs font-semibold text-stone-700 mb-1">
                           {actionType === 'accept'
                             ? 'Pickup Instructions & Handover Note'
-                            : 'Reason or Note for Student'}
+                            : actionType === 'complete'
+                            ? 'Completion Note for Student (Optional)'
+                            : 'Reason for Declining Request'}
                         </label>
                         <textarea
                           rows={2}
@@ -756,6 +758,8 @@ export function IncomingRequestsModal({
                           placeholder={
                             actionType === 'accept'
                               ? 'e.g. Confirmed! Meet me outside the library cafeteria at 2 PM.'
+                              : actionType === 'complete'
+                              ? 'e.g. Item returned safely in great condition. Thank you!'
                               : 'e.g. Sorry, I have an upcoming lab and need the item this week.'
                           }
                           className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-[#1B3B2B] resize-none"

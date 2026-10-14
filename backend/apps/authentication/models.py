@@ -129,6 +129,11 @@ class StudentProfile(models.Model):
     def __str__(self):
         return f"{self.full_name} ({self.college_email})"
 
+    @property
+    def username(self) -> str:
+        """Returns the associated Django user username safely."""
+        return self.user.username if self.user else ''
+
     def update_verification_status(self, save: bool = True):
         """
         Calculates and syncs the verification status based on email verification

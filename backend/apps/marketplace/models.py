@@ -84,7 +84,7 @@ class Listing(models.Model):
     listing_type = models.CharField(max_length=10, choices=LISTING_TYPE_CHOICES, default='rent')
     condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, default='good')
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    deposit_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Refundable deposit amount in ₹ for rental listings")
+    deposit_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Refundable deposit amount in Rs.  for rental listings")
     pricing_unit = models.CharField(max_length=20, choices=PRICING_UNIT_CHOICES, default='day')
     pickup_location = models.CharField(max_length=255, blank=True, help_text="Specific campus pickup point, e.g. Library 2nd Floor")
     image_url = models.URLField(max_length=1024, blank=True)
@@ -123,8 +123,8 @@ class Listing(models.Model):
         if self.listing_type == 'lend':
             return f"{self.title} (Lend/Free)"
         elif self.listing_type == 'sell':
-            return f"{self.title} (₹{self.price} Sale)"
-        return f"{self.title} (₹{self.price}/{self.pricing_unit})"
+            return f"{self.title} (Rs. {self.price} Sale)"
+        return f"{self.title} (Rs. {self.price}/{self.pricing_unit})"
 
 
 class ListingImage(models.Model):
@@ -514,7 +514,7 @@ class PaymentRecord(models.Model):
         ]
 
     def __str__(self):
-        return f"Payment #{self.id}: ₹{self.amount} ({self.purpose}) for Booking #{self.booking_id} [{self.status}]"
+        return f"Payment #{self.id}: Rs. {self.amount} ({self.purpose}) for Booking #{self.booking_id} [{self.status}]"
 
 
 class SettlementAdjustment(models.Model):
@@ -575,7 +575,7 @@ class SettlementAdjustment(models.Model):
         ]
 
     def __str__(self):
-        return f"Adjustment #{self.id}: ₹{self.amount} ({self.adjustment_type}) for Booking #{self.booking_id} [{self.status}]"
+        return f"Adjustment #{self.id}: Rs. {self.amount} ({self.adjustment_type}) for Booking #{self.booking_id} [{self.status}]"
 
 
 class DepositRefund(models.Model):
@@ -645,7 +645,7 @@ class DepositRefund(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"DepositRefund for Booking #{self.booking_id}: Net ₹{self.net_refund_amount} [{self.status}]"
+        return f"DepositRefund for Booking #{self.booking_id}: Net Rs. {self.net_refund_amount} [{self.status}]"
 
 
 class WantedItemRequest(models.Model):

@@ -165,7 +165,7 @@ def notify_payment_declared(payment):
     actor_name = payment.payer.user.get_full_name() or payment.payer.user.username
     title = "Payment Declared"
     # Never expose full sensitive account numbers in notifications
-    message = f"{actor_name} declared a payment of ₹{payment.amount} for {payment.purpose} via {payment.payment_method}."
+    message = f"{actor_name} declared a payment of Rs. {payment.amount} for {payment.purpose} via {payment.payment_method}."
     return create_notification(
         recipient=payment.recipient,
         actor=payment.payer,
@@ -182,7 +182,7 @@ def notify_payment_declared(payment):
 def notify_payment_confirmed(payment):
     actor_name = payment.recipient.user.get_full_name() or payment.recipient.user.username
     title = "Payment Confirmed"
-    message = f"{actor_name} confirmed receipt of your payment of ₹{payment.amount}."
+    message = f"{actor_name} confirmed receipt of your payment of Rs. {payment.amount}."
     return create_notification(
         recipient=payment.payer,
         actor=payment.recipient,
@@ -199,7 +199,7 @@ def notify_payment_confirmed(payment):
 def notify_payment_disputed(payment):
     actor_name = payment.recipient.user.get_full_name() or payment.recipient.user.username
     title = "Payment Disputed"
-    message = f"{actor_name} flagged an issue with your payment declaration of ₹{payment.amount}."
+    message = f"{actor_name} flagged an issue with your payment declaration of Rs. {payment.amount}."
     return create_notification(
         recipient=payment.payer,
         actor=payment.recipient,
@@ -217,7 +217,7 @@ def notify_adjustment_proposed(adjustment):
     actor_name = adjustment.proposed_by.user.get_full_name() or adjustment.proposed_by.user.username
     recipient = adjustment.booking.borrower if adjustment.proposed_by_id == adjustment.booking.lender_id else adjustment.booking.lender
     title = "Financial Adjustment Proposed"
-    message = f"{actor_name} proposed a {adjustment.adjustment_type} adjustment of ₹{adjustment.amount}."
+    message = f"{actor_name} proposed a {adjustment.adjustment_type} adjustment of Rs. {adjustment.amount}."
     return create_notification(
         recipient=recipient,
         actor=adjustment.proposed_by,
@@ -233,7 +233,7 @@ def notify_adjustment_proposed(adjustment):
 
 def notify_adjustment_resolved(adjustment, resolution, actor):
     title = f"Adjustment {resolution.title()}"
-    message = f"Your proposed adjustment of ₹{adjustment.amount} was {resolution}."
+    message = f"Your proposed adjustment of Rs. {adjustment.amount} was {resolution}."
     return create_notification(
         recipient=adjustment.proposed_by,
         actor=actor,
@@ -252,7 +252,7 @@ def notify_refund_declared(refund):
     borrower = refund.booking.borrower
     actor_name = lender.user.get_full_name() or lender.user.username
     title = "Deposit Refund Declared"
-    message = f"{actor_name} declared a deposit refund of ₹{refund.net_refund_amount} via {refund.refund_method}."
+    message = f"{actor_name} declared a deposit refund of Rs. {refund.net_refund_amount} via {refund.refund_method}."
     return create_notification(
         recipient=borrower,
         actor=lender,
@@ -271,7 +271,7 @@ def notify_refund_confirmed(refund):
     borrower = refund.booking.borrower
     actor_name = borrower.user.get_full_name() or borrower.user.username
     title = "Deposit Refund Confirmed"
-    message = f"{actor_name} confirmed receipt of the ₹{refund.net_refund_amount} deposit refund."
+    message = f"{actor_name} confirmed receipt of the Rs. {refund.net_refund_amount} deposit refund."
     return create_notification(
         recipient=lender,
         actor=borrower,

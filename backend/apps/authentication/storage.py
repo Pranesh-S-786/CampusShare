@@ -1,16 +1,23 @@
 import os
 import time
+import json
 import secrets
 import mimetypes
+import logging
 import urllib.request
 import urllib.error
+from pathlib import Path
 from typing import Tuple, Optional
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 class SupabaseStorageService:
     """
     Handles secure profile photo uploads to Supabase Storage via REST API.
     Uses the backend-only service-role key, ensuring credentials are never exposed to clients.
+    Automatically creates bucket if it doesn't exist, and falls back to local storage if needed.
     """
 
     ALLOWED_CONTENT_TYPES = {
@@ -34,6 +41,59 @@ class SupabaseStorageService:
         }
 
     @classmethod
+    def ensure_bucket(cls, config: dict) -> bool:
+        """
+        Ensures the Supabase Storage bucket exists.
+        If it does not exist, automatically creates it as a public bucket using the service-role key.
+        """
+        if not config.get('is_configured'):
+            return False
+        try:
+            create_endpoint = f"{config['url']}/storage/v1/bucket"
+            payload = json.dumps({
+                "id": config['bucket'],
+                "name": config['bucket'],
+                "public": True,
+                "file_size_limit": cls.MAX_FILE_SIZE,
+                "allowed_mime_types": list(cls.ALLOWED_CONTENT_TYPES),
+            }).encode('utf-8')
+
+            req = urllib.request.Request(
+                create_endpoint,
+                data=payload,
+                headers={
+                    'Authorization': f"Bearer {config['key']}",
+                    'Content-Type': 'application/json',
+                },
+                method='POST',
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return resp.status in (200, 201)
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode('utf-8', errors='ignore')
+            if exc.code == 409 or 'already exists' in body.lower() or 'duplicate' in body.lower():
+                return True
+            logger.warning("Could not auto-create Supabase bucket '%s': %s", config['bucket'], body)
+            return False
+        except Exception as exc:
+            logger.warning("Exception auto-creating Supabase bucket '%s': %s", config['bucket'], exc)
+            return False
+
+    @classmethod
+    def _save_local(cls, user_id: int, filename: str, file_bytes: bytes) -> Optional[str]:
+        """Saves file to local MEDIA_ROOT storage as a robust fallback."""
+        try:
+            dest_dir = Path(settings.MEDIA_ROOT) / 'avatars' / str(user_id)
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest_path = dest_dir / filename
+            with open(dest_path, 'wb') as f:
+                f.write(file_bytes)
+            return f"{settings.MEDIA_URL.rstrip('/')}/avatars/{user_id}/{filename}"
+        except Exception as exc:
+            logger.warning("Local storage fallback failed: %s", exc)
+            return None
+
+    @classmethod
     def upload_avatar(
         cls,
         user_id: int,
@@ -47,21 +107,12 @@ class SupabaseStorageService:
             (public_url, None) on success
             (None, error_message) on failure or when unconfigured
         """
-        config = cls.get_config()
-        if not config['is_configured']:
-            return None, (
-                "Supabase Storage credentials are missing. Please configure "
-                "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in backend/.env "
-                "to enable cloud photo uploads."
-            )
-
         if len(file_bytes) > cls.MAX_FILE_SIZE:
             return None, f"File size ({len(file_bytes) / 1024 / 1024:.1f}MB) exceeds the 5MB limit."
 
-        norm_content_type = content_type.lower().split(';')[0].strip()
+        norm_content_type = content_type.lower().split(';')[0].strip() if content_type else ''
         if norm_content_type not in cls.ALLOWED_CONTENT_TYPES:
             # Check file extension as fallback
-            ext = os.path.splitext(original_filename)[1].lower()
             guessed_type, _ = mimetypes.guess_type(original_filename)
             if guessed_type in cls.ALLOWED_CONTENT_TYPES:
                 norm_content_type = guessed_type
@@ -73,28 +124,60 @@ class SupabaseStorageService:
             ext = '.jpg'
 
         filename = f"avatar_{int(time.time())}_{secrets.token_hex(4)}{ext}"
-        object_path = f"users/{user_id}/{filename}"
-        upload_endpoint = f"{config['url']}/storage/v1/object/{config['bucket']}/{object_path}"
 
-        req = urllib.request.Request(
-            upload_endpoint,
-            data=file_bytes,
-            headers={
-                'Authorization': f"Bearer {config['key']}",
-                'Content-Type': norm_content_type,
-                'x-upsert': 'true',
-            },
-            method='POST',
-        )
+        config = cls.get_config()
+        if config['is_configured']:
+            object_path = f"users/{user_id}/{filename}"
+            upload_endpoint = f"{config['url']}/storage/v1/object/{config['bucket']}/{object_path}"
 
-        try:
-            with urllib.request.urlopen(req, timeout=12) as response:
-                if response.status in (200, 201):
-                    public_url = f"{config['url']}/storage/v1/object/public/{config['bucket']}/{object_path}"
+            def _attempt_upload() -> Tuple[Optional[str], Optional[str]]:
+                req = urllib.request.Request(
+                    upload_endpoint,
+                    data=file_bytes,
+                    headers={
+                        'Authorization': f"Bearer {config['key']}",
+                        'Content-Type': norm_content_type,
+                        'x-upsert': 'true',
+                    },
+                    method='POST',
+                )
+                with urllib.request.urlopen(req, timeout=12) as response:
+                    if response.status in (200, 201):
+                        return f"{config['url']}/storage/v1/object/public/{config['bucket']}/{object_path}", None
+                    return None, f"Supabase Storage returned unexpected HTTP {response.status}"
+
+            try:
+                public_url, err = _attempt_upload()
+                if public_url:
                     return public_url, None
-                return None, f"Supabase Storage returned unexpected HTTP {response.status}"
-        except urllib.error.HTTPError as exc:
-            err_body = exc.read().decode('utf-8', errors='ignore')
-            return None, f"Supabase Storage upload error ({exc.code}): {err_body}"
-        except Exception as exc:
-            return None, f"Failed to connect to Supabase Storage: {str(exc)}"
+            except urllib.error.HTTPError as exc:
+                err_body = exc.read().decode('utf-8', errors='ignore')
+                if exc.code in (400, 404) and ('nosuchbucket' in err_body.lower() or 'not found' in err_body.lower() or 'bucket' in err_body.lower()):
+                    if cls.ensure_bucket(config):
+                        try:
+                            public_url, _ = _attempt_upload()
+                            if public_url:
+                                return public_url, None
+                        except Exception:
+                            pass
+
+                local_url = cls._save_local(user_id, filename, file_bytes)
+                if local_url:
+                    return local_url, None
+
+                return None, f"Supabase Storage upload error ({exc.code}): {err_body}"
+            except Exception as exc:
+                local_url = cls._save_local(user_id, filename, file_bytes)
+                if local_url:
+                    return local_url, None
+                return None, f"Failed to connect to Supabase Storage: {str(exc)}"
+
+        local_url = cls._save_local(user_id, filename, file_bytes)
+        if local_url:
+            return local_url, None
+
+        return None, (
+            "Supabase Storage credentials are missing. Please configure "
+            "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in backend/.env "
+            "to enable cloud photo uploads."
+        )

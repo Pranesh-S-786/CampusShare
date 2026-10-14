@@ -241,13 +241,22 @@ export function HandoverQRModal({
                 <span>Unable to generate QR code</span>
               </div>
               <p className="text-[11px] leading-relaxed text-rose-700">{error}</p>
-              <button
-                type="button"
-                onClick={loadQR}
-                className="px-4 py-1.5 rounded-full text-xs font-bold text-white bg-rose-700 hover:bg-rose-800 transition-colors cursor-pointer"
-              >
-                Retry
-              </button>
+              <div className="flex items-center justify-center space-x-2 pt-1">
+                <button
+                  type="button"
+                  onClick={loadQR}
+                  className="px-4 py-1.5 rounded-full text-xs font-bold text-white bg-rose-700 hover:bg-rose-800 transition-colors cursor-pointer"
+                >
+                  Retry
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-1.5 rounded-full text-xs font-bold text-stone-700 bg-white hover:bg-stone-100 border border-stone-200 transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           ) : qrDataUrl ? (
             <div className="space-y-4">

@@ -1385,7 +1385,7 @@ class PaymentDeclareView(APIView):
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,
-                note=f"Payment declaration recorded: ₹{amount} for {purpose} via {payment_method}"
+                note=f"Payment declaration recorded: Rs. {amount} for {purpose} via {payment_method}"
             )
             booking.save(update_fields=['status_history', 'updated_at'])
 
@@ -1445,7 +1445,7 @@ class PaymentConfirmView(APIView):
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,
-                note=f"Recipient confirmed receipt of ₹{payment.amount} ({payment.purpose})"
+                note=f"Recipient confirmed receipt of Rs. {payment.amount} ({payment.purpose})"
             )
             from .financial_logic import check_order_closure_eligibility
             eligible, _ = check_order_closure_eligibility(booking)
@@ -1516,7 +1516,7 @@ class PaymentDisputeView(APIView):
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,
-                note=f"Payment disputed for ₹{payment.amount} ({payment.purpose}): {dispute_reason}"
+                note=f"Payment disputed for Rs. {payment.amount} ({payment.purpose}): {dispute_reason}"
             )
             booking.save(update_fields=['status_history', 'updated_at'])
 
@@ -1583,7 +1583,7 @@ class AdjustmentProposeView(APIView):
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,
-                note=f"Adjustment proposed: ₹{adjustment.amount} ({adjustment.adjustment_type}) - {adjustment.reason}"
+                note=f"Adjustment proposed: Rs. {adjustment.amount} ({adjustment.adjustment_type}) - {adjustment.reason}"
             )
             booking.save(update_fields=['status_history', 'updated_at'])
 
@@ -1649,7 +1649,7 @@ class AdjustmentRespondView(APIView):
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,
-                note=f"Adjustment {action}ed: ₹{adj.amount} ({adj.adjustment_type})"
+                note=f"Adjustment {action}ed: Rs. {adj.amount} ({adj.adjustment_type})"
             )
             booking.save(update_fields=['status_history', 'updated_at'])
 
@@ -1745,7 +1745,7 @@ class DepositRefundDeclareView(APIView):
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,
-                note=f"Lender declared deposit refund: Net ₹{net_refund} via {refund.refund_method}"
+                note=f"Lender declared deposit refund: Net Rs. {net_refund} via {refund.refund_method}"
             )
             booking.save(update_fields=['status_history', 'updated_at'])
 
@@ -1810,7 +1810,7 @@ class DepositRefundConfirmView(APIView):
                 booking.record_status_change(
                     booking.status,
                     actor_id=profile.id,
-                    note=f"Borrower confirmed receipt of deposit refund (₹{refund.net_refund_amount})"
+                    note=f"Borrower confirmed receipt of deposit refund (Rs. {refund.net_refund_amount})"
                 )
             else:
                 refund.status = 'disputed'
@@ -2377,11 +2377,11 @@ class BookingProposeAdvanceView(APIView):
 
         booking.agreed_advance_amount = proposed_amt
         booking.advance_negotiation_status = 'proposed'
-        booking.advance_proposal_notes = f"Proposed by {profile.full_name}: ₹{proposed_amt}. Reason: {reason}"
+        booking.advance_proposal_notes = f"Proposed by {profile.full_name}: Rs. {proposed_amt}. Reason: {reason}"
         booking.record_status_change(
             booking.status,
             actor_id=profile.id,
-            note=f"Proposed revised advance of ₹{proposed_amt}. {reason}"
+            note=f"Proposed revised advance of Rs. {proposed_amt}. {reason}"
         )
         booking.save()
 
@@ -2393,14 +2393,14 @@ class BookingProposeAdvanceView(APIView):
             actor=profile,
             notification_type='advance_proposed',
             title='Advance Payment Revision Proposed',
-            message=f"{profile.full_name} proposed a revised advance of ₹{proposed_amt} for '{booking.listing.title}'.",
+            message=f"{profile.full_name} proposed a revised advance of Rs. {proposed_amt} for '{booking.listing.title}'.",
             booking=booking,
             target_modal='financials',
             target_id=str(booking.id)
         )
 
         return Response({
-            'message': f"Revised advance proposal of ₹{proposed_amt} submitted successfully.",
+            'message': f"Revised advance proposal of Rs. {proposed_amt} submitted successfully.",
             'booking': BookingSerializer(booking).data,
         })
 
@@ -2443,7 +2443,7 @@ class BookingRespondAdvanceView(APIView):
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,
-                note=f"Accepted revised advance amount of ₹{booking.agreed_advance_amount}. {response_note}"
+                note=f"Accepted revised advance amount of Rs. {booking.agreed_advance_amount}. {response_note}"
             )
             booking.save()
 
@@ -2452,19 +2452,19 @@ class BookingRespondAdvanceView(APIView):
                 actor=profile,
                 notification_type='advance_confirmed',
                 title='Advance Revision Accepted',
-                message=f"{profile.full_name} accepted the revised advance of ₹{booking.agreed_advance_amount} for '{booking.listing.title}'.",
+                message=f"{profile.full_name} accepted the revised advance of Rs. {booking.agreed_advance_amount} for '{booking.listing.title}'.",
                 booking=booking,
                 target_modal='financials',
                 target_id=str(booking.id)
             )
-            msg = f"Agreed to revised advance amount of ₹{booking.agreed_advance_amount}."
+            msg = f"Agreed to revised advance amount of Rs. {booking.agreed_advance_amount}."
         else:
             booking.advance_negotiation_status = 'rejected'
             booking.agreed_advance_amount = booking.snapshot_deposit_amount
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,
-                note=f"Rejected revised advance proposal. Reverted to ₹{booking.snapshot_deposit_amount}. {response_note}"
+                note=f"Rejected revised advance proposal. Reverted to Rs. {booking.snapshot_deposit_amount}. {response_note}"
             )
             booking.save()
 
@@ -2473,12 +2473,12 @@ class BookingRespondAdvanceView(APIView):
                 actor=profile,
                 notification_type='advance_rejected',
                 title='Advance Revision Rejected',
-                message=f"{profile.full_name} declined the advance revision. Original term of ₹{booking.snapshot_deposit_amount} stands.",
+                message=f"{profile.full_name} declined the advance revision. Original term of Rs. {booking.snapshot_deposit_amount} stands.",
                 booking=booking,
                 target_modal='financials',
                 target_id=str(booking.id)
             )
-            msg = f"Rejected revised advance proposal. Reverted to original ₹{booking.snapshot_deposit_amount}."
+            msg = f"Rejected revised advance proposal. Reverted to original Rs. {booking.snapshot_deposit_amount}."
 
         return Response({
             'message': msg,
@@ -2547,7 +2547,7 @@ class BookingProposeTermsView(APIView):
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,
-                note=f"Lender confirmed existing rental terms (₹{booking.snapshot_price}/{booking.snapshot_pricing_unit}, deposit ₹{booking.snapshot_deposit_amount})."
+                note=f"Lender confirmed existing rental terms (Rs. {booking.snapshot_price}/{booking.snapshot_pricing_unit}, deposit Rs. {booking.snapshot_deposit_amount})."
             )
             booking.save()
 
@@ -2582,7 +2582,7 @@ class BookingProposeTermsView(APIView):
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,
-                note=f"Lender proposed revised terms: ₹{proposed_rent}/{proposed_unit}, deposit ₹{proposed_deposit}. Note: {note}"
+                note=f"Lender proposed revised terms: Rs. {proposed_rent}/{proposed_unit}, deposit Rs. {proposed_deposit}. Note: {note}"
             )
             booking.save()
 
@@ -2591,12 +2591,12 @@ class BookingProposeTermsView(APIView):
                 actor=profile,
                 notification_type='terms_adjusted',
                 title='Revised Rental Terms Proposed',
-                message=f"Lender proposed revised terms for '{booking.listing.title}': ₹{proposed_rent}/{proposed_unit}, deposit ₹{proposed_deposit}. Please review and accept.",
+                message=f"Lender proposed revised terms for '{booking.listing.title}': Rs. {proposed_rent}/{proposed_unit}, deposit Rs. {proposed_deposit}. Please review and accept.",
                 booking=booking,
                 target_modal='my_bookings',
                 target_id=str(booking.id)
             )
-            msg = f"Revised terms proposed (₹{proposed_rent}/{proposed_unit}, deposit ₹{proposed_deposit}). Sent to borrower for approval."
+            msg = f"Revised terms proposed (Rs. {proposed_rent}/{proposed_unit}, deposit Rs. {proposed_deposit}). Sent to borrower for approval."
 
         return Response({
             'message': msg,
@@ -2678,7 +2678,7 @@ class BookingRespondTermsView(APIView):
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,
-                note=f"Borrower accepted agreed rental terms. Snapshots frozen at ₹{booking.snapshot_price}/{booking.snapshot_pricing_unit}, deposit ₹{booking.snapshot_deposit_amount}."
+                note=f"Borrower accepted agreed rental terms. Snapshots frozen at Rs. {booking.snapshot_price}/{booking.snapshot_pricing_unit}, deposit Rs. {booking.snapshot_deposit_amount}."
             )
             booking.save()
 
@@ -2761,7 +2761,7 @@ class BookingProposeRentAdjustmentView(APIView):
         booking.record_status_change(
             booking.status,
             actor_id=profile.id,
-            note=f"Lender proposed final rent adjustment to ₹{proposed_rent}: {reason}"
+            note=f"Lender proposed final rent adjustment to Rs. {proposed_rent}: {reason}"
         )
         booking.save()
 
@@ -2772,7 +2772,7 @@ class BookingProposeRentAdjustmentView(APIView):
             actor=profile,
             notification_type='rent_adj_proposed',
             title='Rent Adjustment Proposed',
-            message=f"Lender proposed final rent of ₹{proposed_rent} for '{booking.listing.title}'. Reason: {reason}",
+            message=f"Lender proposed final rent of Rs. {proposed_rent} for '{booking.listing.title}'. Reason: {reason}",
             booking=booking,
             target_modal='financials',
             target_id=str(booking.id)
@@ -2782,7 +2782,7 @@ class BookingProposeRentAdjustmentView(APIView):
         difference = proposed_rent - calculated_baseline
 
         return Response({
-            'message': f"Proposed final rent adjustment of ₹{proposed_rent} submitted for borrower approval.",
+            'message': f"Proposed final rent adjustment of Rs. {proposed_rent} submitted for borrower approval.",
             'booking': BookingSerializer(booking).data,
             'adjustment': {
                 'proposed_rent': str(booking.lender_proposed_rent),
@@ -2829,9 +2829,9 @@ class BookingRespondRentAdjustmentView(APIView):
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,
-                note=f"Borrower accepted rent adjustment to ₹{booking.lender_proposed_rent}."
+                note=f"Borrower accepted rent adjustment to Rs. {booking.lender_proposed_rent}."
             )
-            msg = f"Accepted rent adjustment to ₹{booking.lender_proposed_rent}."
+            msg = f"Accepted rent adjustment to Rs. {booking.lender_proposed_rent}."
         else:
             booking.rent_adjustment_status = 'rejected'
             booking.rent_adjustment_rejected_reason = reason
