@@ -91,6 +91,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refreshUser()
+
+    const handleUnauthorized = () => {
+      removeAuthToken()
+      setUser(null)
+      setToken(null)
+    }
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized)
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized)
+    }
   }, [refreshUser])
 
   const loginSuccess = useCallback((newUser: StudentProfile, newToken: string) => {

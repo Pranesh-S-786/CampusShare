@@ -67,13 +67,17 @@ export function AdvancePaymentModal({
           (p.purpose as string) === 'advance' ||
           (agreedAmount > 0 && Math.abs(Number(p.amount) - agreedAmount) < 0.01)
       )
-      const dep =
-        relevantPayments.find((p) => p.status === 'declared') ||
-        relevantPayments.find((p) => p.status === 'confirmed') ||
-        (relevantPayments.length > 0 ? relevantPayments[relevantPayments.length - 1] : null)
+      // Confirmed deposit ALWAYS takes precedence over declared/disputed
+      const confirmedDep = relevantPayments.find((p) => p.status === 'confirmed')
+      const declaredDep = relevantPayments.find((p) => p.status === 'declared')
+      const disputedDep = relevantPayments.find((p) => p.status === 'disputed')
+
+      const dep = confirmedDep || declaredDep || disputedDep || (relevantPayments.length > 0 ? relevantPayments[0] : null)
 
       setDepositPayment(dep)
-      setError(null)
+      if (isManualRefresh) {
+        setError(null)
+      }
     } catch (err: unknown) {
       if (isManualRefresh) {
         setError(err instanceof Error ? err.message : 'Failed to refresh advance payment records.')
@@ -462,6 +466,20 @@ export function AdvancePaymentModal({
                       )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Confirmed State: Done / Proceed action */}
+              {isConfirmed && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#1B3B2B] text-white font-bold text-xs hover:bg-[#26533d] transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Done & Continue</span>
+                  </button>
                 </div>
               )}
 

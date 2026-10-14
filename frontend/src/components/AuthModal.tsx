@@ -65,6 +65,7 @@ export function AuthModal() {
   // Verification state
   const [verifyEmailAddr, setVerifyEmailAddr] = useState('')
   const [verifyCode, setVerifyCode] = useState('')
+  const [devOtpNotice, setDevOtpNotice] = useState<string | null>(null)
   const [resendingCode, setResendingCode] = useState(false)
 
   // Login state
@@ -157,6 +158,11 @@ export function AuthModal() {
       })
 
       setVerifyEmailAddr(response.email)
+      if (response.email_delivery?.dev_code) {
+        setDevOtpNotice(response.email_delivery.dev_code)
+      } else {
+        setDevOtpNotice(null)
+      }
       openAuthModal('verify-email', response.email)
       setSuccessBanner(response.message)
     } catch (err: any) {
@@ -198,6 +204,9 @@ export function AuthModal() {
     setResendingCode(true)
     try {
       const res = await resendVerificationCode(verifyEmailAddr)
+      if (res.email_delivery?.dev_code) {
+        setDevOtpNotice(res.email_delivery.dev_code)
+      }
       setSuccessBanner(res.message)
     } catch (err: any) {
       setErrorBanner(err.message || 'Failed to resend verification code.')
@@ -223,6 +232,9 @@ export function AuthModal() {
       if (!response.user.is_email_verified) {
         removeAuthToken()
         setVerifyEmailAddr(response.user.college_email)
+        if (response.email_delivery?.dev_code) {
+          setDevOtpNotice(response.email_delivery.dev_code)
+        }
         openAuthModal('verify-email', response.user.college_email)
         setSuccessBanner(`Your email address has not been verified yet. A verification code was sent to ${response.user.college_email}. Please enter it below.`)
         return
@@ -235,6 +247,9 @@ export function AuthModal() {
         removeAuthToken()
         const targetEmail = err.data.email || loginEmail
         setVerifyEmailAddr(targetEmail)
+        if (err.data.email_delivery?.dev_code) {
+          setDevOtpNotice(err.data.email_delivery.dev_code)
+        }
         openAuthModal('verify-email', targetEmail)
         setErrorBanner(null)
         setSuccessBanner(err.message || `A verification code was sent to ${targetEmail}. Please verify your email before logging in.`)
@@ -254,6 +269,9 @@ export function AuthModal() {
 
     try {
       const res = await requestPasswordReset(forgotEmail)
+      if (res.email_delivery?.dev_code) {
+        setDevOtpNotice(res.email_delivery.dev_code)
+      }
       setSuccessBanner(res.message)
       setResetStep('confirm')
     } catch (err: any) {
@@ -403,6 +421,36 @@ export function AuthModal() {
             <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/90 text-emerald-900 text-xs flex items-start space-x-2.5 animate-in slide-in-from-top-1">
               <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
               <div className="font-medium leading-relaxed">{successBanner}</div>
+            </div>
+          )}
+
+          {devOtpNotice && (modalView === 'verify-email' || (modalView === 'forgot-password' && resetStep === 'confirm')) && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-2 shadow-xs animate-in slide-in-from-top-1">
+              <div className="flex items-center space-x-2 min-w-0">
+                <Info className="w-4 h-4 text-amber-700 shrink-0" />
+                <div className="leading-snug truncate">
+                  <span className="font-semibold text-stone-700">Verification Code: </span>
+                  <span className="font-mono font-extrabold text-amber-950 text-sm tracking-widest">{devOtpNotice}</span>
+                </div>
+              </div>
+              {modalView === 'verify-email' && (
+                <button
+                  type="button"
+                  onClick={() => setVerifyCode(devOtpNotice)}
+                  className="px-3 py-1.5 bg-[#1B3B2B] hover:bg-[#26533d] text-white rounded-xl font-bold text-xs shadow-xs transition-all cursor-pointer shrink-0"
+                >
+                  Auto-fill
+                </button>
+              )}
+              {modalView === 'forgot-password' && (
+                <button
+                  type="button"
+                  onClick={() => setResetCode(devOtpNotice)}
+                  className="px-3 py-1.5 bg-[#1B3B2B] hover:bg-[#26533d] text-white rounded-xl font-bold text-xs shadow-xs transition-all cursor-pointer shrink-0"
+                >
+                  Auto-fill
+                </button>
+              )}
             </div>
           )}
 

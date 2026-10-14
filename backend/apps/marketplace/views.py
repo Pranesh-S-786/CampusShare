@@ -1363,8 +1363,39 @@ class PaymentDeclareView(APIView):
             transaction_ref = serializer.validated_data.get('transaction_reference', '').strip()
             evidence_url = serializer.validated_data.get('evidence_url', '').strip()
             payer_notes = serializer.validated_data.get('payer_notes', '').strip()
-
             confirm_as_recipient = serializer.validated_data.get('confirm_as_recipient', False)
+
+            if purpose == 'deposit':
+                existing_confirmed = booking.payments.filter(purpose='deposit', status='confirmed').first()
+                if existing_confirmed:
+                    return Response({
+                        'message': 'Advance payment is already confirmed for this booking.',
+                        'payment': PaymentRecordSerializer(existing_confirmed).data,
+                        'summary': get_booking_financial_summary(booking),
+                    }, status=status.HTTP_200_OK)
+
+                existing_declared = booking.payments.filter(purpose='deposit', status='declared').first()
+                if existing_declared and confirm_as_recipient and profile.id == booking.lender_id:
+                    from django.utils import timezone
+                    existing_declared.status = 'confirmed'
+                    existing_declared.confirmed_at = timezone.now()
+                    existing_declared.confirmed_by = profile
+                    existing_declared.payment_method = payment_method
+                    existing_declared.amount = amount
+                    existing_declared.save(update_fields=['status', 'confirmed_at', 'confirmed_by', 'payment_method', 'amount', 'updated_at'])
+                    booking.record_status_change(
+                        booking.status,
+                        actor_id=profile.id,
+                        note=f"Lender confirmed direct receipt of Rs. {amount} (deposit) from borrower via {payment_method}"
+                    )
+                    booking.save(update_fields=['status_history', 'updated_at'])
+                    from .notification_service import notify_payment_confirmed
+                    notify_payment_confirmed(existing_declared)
+                    return Response({
+                        'message': 'Payment confirmed directly by recipient.',
+                        'payment': PaymentRecordSerializer(existing_declared).data,
+                        'summary': get_booking_financial_summary(booking),
+                    }, status=status.HTTP_200_OK)
             if confirm_as_recipient and profile.id == booking.lender_id:
                 from django.utils import timezone
                 payer = booking.borrower
@@ -1461,6 +1492,12 @@ class PaymentConfirmView(APIView):
             payment.save(update_fields=['status', 'confirmed_at', 'confirmed_by', 'updated_at'])
 
             booking = Booking.objects.select_for_update().get(pk=payment.booking_id)
+
+            if payment.purpose == 'deposit':
+                booking.payments.filter(purpose='deposit', status='declared').exclude(pk=payment.pk).update(
+                    status='cancelled',
+                    payer_notes='Automatically superseded by confirmed advance payment.'
+                )
             booking.record_status_change(
                 booking.status,
                 actor_id=profile.id,

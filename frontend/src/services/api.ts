@@ -160,6 +160,13 @@ async function handleResponse<T>(res: Response): Promise<T> {
   }
 
   if (!res.ok) {
+    if (res.status === 401) {
+      removeAuthToken()
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'))
+      }
+    }
+
     let errorMsg = ''
     if (typeof data === 'string' && data.trim()) {
       errorMsg = data.trim()

@@ -19,6 +19,7 @@ import {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  getAuthToken,
 } from '../../services/api'
 
 interface NotificationsModalProps {
@@ -45,6 +46,16 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   const [loadingMore, setLoadingMore] = useState<boolean>(false)
 
   const fetchNotifications = useCallback(async (resetPage = false) => {
+    const token = getAuthToken()
+    if (!token) {
+      setNotifications([])
+      setUnreadCount(0)
+      setError('Your session has expired or you are not signed in.')
+      setLoading(false)
+      setLoadingMore(false)
+      return
+    }
+
     try {
       const targetPage = resetPage ? 1 : page
       if (resetPage) {
@@ -251,14 +262,32 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               <p className="text-sm font-medium">Checking notifications...</p>
             </div>
           ) : error ? (
-            <div className="p-6 m-4 bg-red-50 border border-red-200 rounded-xl text-center">
-              <p className="text-sm text-red-700 font-medium mb-3">{error}</p>
-              <button
-                onClick={() => fetchNotifications(true)}
-                className="px-4 py-2 text-xs font-semibold bg-white border border-red-300 text-red-800 rounded-lg hover:bg-red-100/50"
-              >
-                Retry
-              </button>
+            <div className="p-6 m-4 bg-red-50 border border-red-200 rounded-xl text-center space-y-3">
+              <p className="text-sm text-red-700 font-medium">
+                {error.toLowerCase().includes('token') || error.toLowerCase().includes('sign in') || error.toLowerCase().includes('unauthorized') || error.toLowerCase().includes('credentials')
+                  ? 'Your session has expired or you are not signed in.'
+                  : error}
+              </p>
+              {error.toLowerCase().includes('token') || error.toLowerCase().includes('sign in') || error.toLowerCase().includes('unauthorized') || error.toLowerCase().includes('credentials') ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose()
+                    onNavigate('login')
+                  }}
+                  className="px-4 py-2 text-xs font-semibold bg-[#1B3B2B] text-white rounded-lg hover:bg-[#26533d] transition-colors cursor-pointer"
+                >
+                  Sign In
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fetchNotifications(true)}
+                  className="px-4 py-2 text-xs font-semibold bg-white border border-red-300 text-red-800 rounded-lg hover:bg-red-100/50 cursor-pointer"
+                >
+                  Retry
+                </button>
+              )}
             </div>
           ) : notifications.length === 0 ? (
             <div className="py-16 text-center flex flex-col items-center justify-center">
